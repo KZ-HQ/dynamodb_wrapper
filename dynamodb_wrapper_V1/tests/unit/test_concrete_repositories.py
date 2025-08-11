@@ -3,15 +3,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from dynamodb_wrapper.config import DynamoDBConfig
-from dynamodb_wrapper.models import (
+from dynamodb_wrapper_V1.dynamodb_wrapper.config import DynamoDBConfig
+from dynamodb_wrapper_V1.dynamodb_wrapper.models import (
     PipelineConfig,
     PipelineRunLog,
     RunStatus,
     TableConfig,
     TableType,
 )
-from dynamodb_wrapper.repositories import (
+from dynamodb_wrapper_V1.dynamodb_wrapper.repositories import (
     PipelineConfigRepository,
     PipelineRunLogsRepository,
     TableConfigRepository,
@@ -217,7 +217,7 @@ class TestPipelineConfigRepository:
         """Test update_pipeline_status with timezone parameter."""
         with patch.object(repository, 'get_or_raise') as mock_get, \
              patch.object(repository, 'update') as mock_update, \
-             patch('dynamodb_wrapper.utils.timezone.now_in_tz') as mock_now_tz:
+             patch('dynamodb_wrapper_V1.dynamodb_wrapper.utils.timezone.now_in_tz') as mock_now_tz:
 
             mock_pipeline = Mock(spec=PipelineConfig)
             mock_get.return_value = mock_pipeline
@@ -555,7 +555,7 @@ class TestPipelineRunLogsRepository:
             mock_update.return_value = mock_run
 
             # Mock datetime.now() to return timezone-aware datetime
-            with patch('dynamodb_wrapper.repositories.pipeline_run_logs.datetime') as mock_datetime:
+            with patch('dynamodb_wrapper_V1.dynamodb_wrapper.repositories.pipeline_run_logs.datetime') as mock_datetime:
                 mock_now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
                 mock_datetime.now.return_value = mock_now
                 mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)

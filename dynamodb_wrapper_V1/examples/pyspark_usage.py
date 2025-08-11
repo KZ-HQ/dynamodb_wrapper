@@ -10,13 +10,13 @@ This example demonstrates:
 5. Automatic logging and monitoring
 """
 
-from dynamodb_wrapper import (
+from dynamodb_wrapper_V1.dynamodb_wrapper import (
     DynamoDBConfig,
     PipelineConfigRepository,
     TableConfigRepository,
 )
-from dynamodb_wrapper.models.table_config import TableType
-from dynamodb_wrapper.utils import (
+from dynamodb_wrapper_V1.dynamodb_wrapper.models.table_config import TableType
+from dynamodb_wrapper_V1.dynamodb_wrapper.utils import (
     SparkDynamoDBIntegration,
     create_spark_session_with_dynamodb,
     get_pipeline_config_for_spark,

@@ -4,14 +4,14 @@ from unittest.mock import patch
 import pytest
 from moto import mock_aws
 
-from dynamodb_wrapper.config import DynamoDBConfig
-from dynamodb_wrapper.exceptions import (
+from dynamodb_wrapper_V1.dynamodb_wrapper.config import DynamoDBConfig
+from dynamodb_wrapper_V1.dynamodb_wrapper.exceptions import (
     ConnectionError,
     ItemNotFoundError,
     ValidationError,
 )
-from dynamodb_wrapper.models import PipelineConfig
-from dynamodb_wrapper.repositories.base import BaseDynamoRepository
+from dynamodb_wrapper_V1.dynamodb_wrapper.models import PipelineConfig
+from dynamodb_wrapper_V1.dynamodb_wrapper.repositories.base import BaseDynamoRepository
 
 
 class _TestRepository(BaseDynamoRepository[PipelineConfig]):

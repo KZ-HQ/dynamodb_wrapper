@@ -653,7 +653,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dynamodb-wrapper"
+name = "dynamodb-wrapper-v1"
 version = "1.0.1"
 source = { virtual = "." }
 dependencies = [

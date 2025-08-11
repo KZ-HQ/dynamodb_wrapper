@@ -1,11 +1,11 @@
 [project]
-name = "dynamodb-wrapper"
+name = "dynamodb-wrapper-v1"
 version = "1.0.1"
 description = "A comprehensive Python library that provides a repository pattern wrapper around AWS DynamoDB using boto3 and Pydantic, specifically designed for PySpark pipeline environments."
 authors = [
     {name = "Keith", email = "keith@example.com"}
 ]
-readme = "README.md"
+readme = "README_V1.md"
 requires-python = ">=3.8"
 classifiers = [
     "Development Status :: 4 - Beta",

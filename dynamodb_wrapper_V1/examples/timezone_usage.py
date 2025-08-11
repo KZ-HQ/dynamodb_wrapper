@@ -10,12 +10,12 @@ This example demonstrates:
 5. Best practices for global applications
 """
 
-from dynamodb_wrapper import (
+from dynamodb_wrapper_V1.dynamodb_wrapper import (
     DynamoDBConfig,
     PipelineConfigRepository,
     PipelineRunLogsRepository,
 )
-from dynamodb_wrapper.utils import (
+from dynamodb_wrapper_V1.dynamodb_wrapper.utils import (
     TimezoneManager,
     now_in_tz,
     set_global_timezone,

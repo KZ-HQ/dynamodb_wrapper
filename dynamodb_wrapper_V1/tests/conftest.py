@@ -1,9 +1,15 @@
+import sys
+from pathlib import Path
+
+# Add parent directory to path so we can import dynamodb_wrapper_V1
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 import boto3
 import pytest
 from moto import mock_aws
 
-from dynamodb_wrapper.config import DynamoDBConfig
-from dynamodb_wrapper.repositories import (
+from dynamodb_wrapper_V1.dynamodb_wrapper.config import DynamoDBConfig
+from dynamodb_wrapper_V1.dynamodb_wrapper.repositories import (
     PipelineConfigRepository,
     PipelineRunLogsRepository,
     TableConfigRepository,

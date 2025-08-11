@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from dynamodb_wrapper.models import PipelineConfig, PipelineRunLog, TableConfig
-from dynamodb_wrapper.models.pipeline_run_log import LogLevel, RunStatus
-from dynamodb_wrapper.models.table_config import DataFormat, TableType
+from dynamodb_wrapper_V1.dynamodb_wrapper.models import PipelineConfig, PipelineRunLog, TableConfig
+from dynamodb_wrapper_V1.dynamodb_wrapper.models.pipeline_run_log import LogLevel, RunStatus
+from dynamodb_wrapper_V1.dynamodb_wrapper.models.table_config import DataFormat, TableType
 
 
 class TestPipelineConfig:
@@ -160,7 +160,7 @@ class TestPipelineRunLog:
 
     def test_pipeline_run_log_with_stages(self):
         """Test pipeline run log with stage information."""
-        from dynamodb_wrapper.models.pipeline_run_log import StageInfo
+        from dynamodb_wrapper_V1.dynamodb_wrapper.models.pipeline_run_log import StageInfo
 
         stage = StageInfo(
             stage_name="extract",
@@ -186,7 +186,7 @@ class TestPipelineRunLog:
 
     def test_pipeline_run_log_with_data_quality(self):
         """Test pipeline run log with data quality results."""
-        from dynamodb_wrapper.models.pipeline_run_log import DataQualityResult
+        from dynamodb_wrapper_V1.dynamodb_wrapper.models.pipeline_run_log import DataQualityResult
 
         dq_result = DataQualityResult(
             check_name="row_count",

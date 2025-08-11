@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
-from dynamodb_wrapper.config import DynamoDBConfig
-from dynamodb_wrapper.utils.timezone import (
+from dynamodb_wrapper_V1.dynamodb_wrapper.config import DynamoDBConfig
+from dynamodb_wrapper_V1.dynamodb_wrapper.utils.timezone import (
     TimezoneManager,
     ensure_timezone_aware,
     get_timezone_manager,

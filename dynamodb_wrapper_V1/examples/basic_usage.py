@@ -13,14 +13,14 @@ This example demonstrates:
 from datetime import datetime
 from decimal import Decimal
 
-from dynamodb_wrapper import (
+from dynamodb_wrapper_V1.dynamodb_wrapper import (
     DynamoDBConfig,
     PipelineConfigRepository,
     PipelineRunLogsRepository,
     TableConfigRepository,
 )
-from dynamodb_wrapper.models.pipeline_run_log import RunStatus
-from dynamodb_wrapper.models.table_config import DataFormat, TableType
+from dynamodb_wrapper_V1.dynamodb_wrapper.models.pipeline_run_log import RunStatus
+from dynamodb_wrapper_V1.dynamodb_wrapper.models.table_config import DataFormat, TableType
 
 
 def main():
