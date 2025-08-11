@@ -11,10 +11,13 @@ The first version of the DynamoDB wrapper library - a comprehensive Python libra
 **Documentation**: [V1 README](./dynamodb_wrapper_V1/README_V1.md)  
 **Architecture**: [V1 Architecture](./dynamodb_wrapper_V1/ARCHITECTURE_V1.md)  
 
-### 🔹 dynamodb_wrapper_V2/ (Coming Soon)
+### 🔹 dynamodb_wrapper_V2/
 The next generation of the DynamoDB wrapper library with enhanced features and improvements.
 
-**Status**: 🚧 Under Development
+**Status**: 🚧 Under Active Development  
+**Documentation**: [V2 README](./dynamodb_wrapper_V2/README_V2.md)  
+**Architecture**: [V2 Architecture](./dynamodb_wrapper_V2/ARCHITECTURE_V2.md)  
+**Version**: 1.0.0
 
 ## 🚀 Getting Started
 
@@ -45,11 +48,11 @@ from dynamodb_wrapper_V1.dynamodb_wrapper import (
 
 | Feature | V1 | V2 |
 |---------|----|----|
-| Repository Pattern | ✅ | 🚧 |
-| Pydantic Models | ✅ | 🚧 |
-| PySpark Integration | ✅ | 🚧 |
-| Timezone Support | ✅ | 🚧 |
-| Testing Coverage | ✅ 94 tests | 🚧 |
+| Repository Pattern | ✅ | ✅ (Enhanced) |
+| Pydantic Models | ✅ | ✅ (v2.x) |
+| PySpark Integration | ✅ | ✅ |
+| Timezone Support | ✅ | ✅ |
+| Testing Coverage | ✅ 94 tests | ✅ 94+ tests |
 
 ## 🤝 Contributing
 
@@ -64,10 +67,13 @@ uv run pytest tests/unit/
 uv run ruff check .
 ```
 
-### V2 Development (Coming Soon)
+### V2 Development
 ```bash
 cd dynamodb_wrapper_V2
-# Development workflow TBD
+uv sync
+# Make changes
+uv run pytest tests/unit/
+uv run ruff check .
 ```
 
 ## 📄 License
