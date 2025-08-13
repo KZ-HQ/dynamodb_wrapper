@@ -1,502 +1,157 @@
-# 🏗️ DynamoDB Wrapper Library Architecture
+# 🏗️ DynamoDB Wrapper Monorepo - Architecture Overview
 
-This document provides a comprehensive overview of the DynamoDB Wrapper Library architecture, design patterns, and implementation details.
+## TL;DR
 
-## 📋 Table of Contents
+**Monorepo** containing two architectural approaches to DynamoDB wrapping: **V1 Repository Pattern** (legacy, stable) and **V2 CQRS Architecture** (current, production-ready). V2 represents a complete architectural evolution with 136% more comprehensive testing and modern Python 3.9+ features.
 
-- [Overview](#-overview)
-- [Core Design Patterns](#-core-design-patterns)
-- [Project Structure](#-project-structure)
-- [Core Components](#-core-components)
-- [Data Flow](#-data-flow)
-- [Configuration System](#-configuration-system)
-- [Error Handling Strategy](#-error-handling-strategy)
-- [Testing Architecture](#-testing-architecture)
-- [PySpark Integration](#-pyspark-integration)
-- [Timezone Management](#-timezone-management)
-- [Extension Points](#-extension-points)
+---
 
-## 🎯 Overview
+## 🎯 Architecture Evolution
 
-The DynamoDB Wrapper Library is designed as a comprehensive data access layer that provides a clean abstraction over AWS DynamoDB operations. It follows the Repository pattern and leverages Pydantic for type-safe data validation, making it particularly suitable for PySpark pipeline environments.
+### **V1: Repository Pattern (Legacy)**
+Traditional repository pattern implementation providing clean abstraction over DynamoDB operations.
 
-### Key Design Principles
+**Key Characteristics:**
+- **Pattern**: Repository Pattern with Generic Base Classes
+- **Models**: Pydantic v1 compatible models
+- **Operations**: Unified repository interface for all CRUD operations
+- **Testing**: 94 unit tests with mocking
+- **Python**: 3.8+ compatibility
 
-- **Repository Pattern**: Clean separation between data access and business logic
-- **Type Safety**: Pydantic models ensure data integrity and validation
-- **Configuration Flexibility**: Support for multiple deployment environments
-- **Timezone Awareness**: Global timezone handling with UTC storage
-- **Error Resilience**: Comprehensive exception handling and logging
-- **PySpark Integration**: Native support for Spark pipeline workflows
+**Strengths:**
+- ✅ Familiar repository pattern
+- ✅ Clean abstraction over DynamoDB
+- ✅ Comprehensive timezone support
+- ✅ Stable and production-proven
 
-## 🏛️ Core Design Patterns
+**Limitations:**
+- ⚠️ Mixed read/write optimization concerns
+- ⚠️ Manual key management and construction
+- ⚠️ Limited DynamoDB-specific optimizations
+- ⚠️ Monolithic repository interfaces
 
-### Repository Pattern
+### **V2: CQRS Architecture (Current) - Production Ready**
+Modern **Command Query Responsibility Segregation** implementation with domain-driven design.
 
-The library implements the Repository pattern to provide a consistent interface for data access operations:
+**Key Characteristics:**
+- **Pattern**: CQRS with Domain-Driven Design
+- **Models**: Pydantic v2 with Meta class single source of truth
+- **Operations**: Separate Read/Write APIs optimized for different patterns
+- **Testing**: 222 tests (218 unit + 4 integration) - **136% more comprehensive**
+- **Python**: 3.9+ with native zoneinfo support
 
-```python
-BaseDynamoRepository[T] (Abstract Base)
-├── PipelineConfigRepository
-├── TableConfigRepository  
-└── PipelineRunLogsRepository
+**Advanced Features:**
+- 🎯 **Read Optimization**: Projection expressions, flexible view models, GSI queries
+- ✏️ **Write Optimization**: DTO validation, conditional expressions, transactions  
+- 📊 **Meta Class Pattern**: Single source of truth for all model metadata
+- 🔄 **DynamoDB Compatibility**: Automatic boolean-to-string conversion for GSI keys
+- ⚡ **Performance**: 50-80% payload reduction through flexible view models
+- 🧪 **Comprehensive Testing**: Edge cases, batch operations, concurrency, error mapping
+
+## 📊 Technical Comparison
+
+| Architecture Aspect | V1 Repository | V2 CQRS |
+|---------------------|---------------|---------|
+| **Read Operations** | Generic `get()`, `list()` methods | Specialized `*ReadApi` with projections, GSI optimization |
+| **Write Operations** | Generic `create()`, `update()` methods | Specialized `*WriteApi` with DTO validation, conditionals |
+| **Key Management** | Manual construction | Meta class single source of truth |
+| **Data Models** | Single model type | 3 types: Domain, View (read), DTO (write) |
+| **DynamoDB Features** | Basic operations | Advanced: boolean conversion, flexible views |
+| **Error Handling** | Generic exceptions | Domain-specific exception hierarchy |
+| **Type Safety** | Pydantic v1 validation | Enhanced Pydantic v2 + Meta class type safety |
+| **Testing Strategy** | Unit tests with mocking | Comprehensive: unit, integration, edge cases |
+
+## 🏛️ Detailed Architecture Analysis
+
+### **V1 Repository Architecture**
+```
+Repository Pattern
+├── repositories/          # Generic repository implementations
+│   ├── base.py           # Abstract base repository
+│   ├── pipeline_config.py
+│   ├── table_config.py
+│   └── pipeline_run_logs.py
+├── models/               # Simple Pydantic models
+├── utils/                # Helper utilities
+└── tests/                # Unit tests with mocking
 ```
 
-### Generic Type System
+**Design Philosophy**: Traditional data access layer with clean separation
 
-Uses Python generics to ensure type safety across all repository operations:
-
-```python
-T = TypeVar('T', bound=BaseModel)
-class BaseDynamoRepository(Generic[T], ABC):
+### **V2 CQRS Architecture**  
+```
+CQRS + Domain-Driven Design
+├── handlers/             # 🎯 CQRS Application Logic
+│   ├── pipeline_config/  # Domain-specific handlers
+│   │   ├── queries.py    # PipelineConfigReadApi
+│   │   └── commands.py   # PipelineConfigWriteApi
+│   ├── table_config/     # Optimized for different use cases
+│   └── pipeline_run_logs/
+├── core/                 # 🛠️ Infrastructure
+│   └── table_gateway.py  # Thin DynamoDB wrapper
+├── models/               # 📊 Optimized Data Models
+│   ├── domain_models.py  # Meta class single source of truth
+│   ├── views.py          # Read-optimized (50-80% smaller)
+│   └── dtos.py           # Write-optimized with validation
+├── utils.py              # 🔧 Unified utilities
+└── tests/                # 🧪 Comprehensive testing (222 tests)
+    ├── unit/             # 218 unit tests
+    └── integration/      # 4 integration tests
 ```
 
-### Factory Pattern
-
-Configuration objects use factory methods for common scenarios:
-
-```python
-DynamoDBConfig.for_local_development()
-DynamoDBConfig.for_pyspark()  
-DynamoDBConfig.from_env()
-```
-
-### Context Manager Pattern
-
-PySpark integration provides context managers for automatic resource management:
-
-```python
-with integration.pipeline_run_context(pipeline_id, trigger_type) as run_id:
-    # Pipeline operations
-```
-
-## 📁 Project Structure
-
-```
-dynamodb_wrapper/
-├── __init__.py                 # Public API exports
-├── config/
-│   ├── __init__.py
-│   └── config.py              # Configuration management
-├── exceptions/
-│   ├── __init__.py
-│   ├── base.py               # Base exception class
-│   ├── connection.py         # Connection-related exceptions
-│   ├── item_not_found.py     # Item not found exceptions
-│   └── validation.py         # Validation exceptions
-├── models/
-│   ├── __init__.py
-│   ├── pipeline_config.py    # Pipeline configuration model
-│   ├── pipeline_run_log.py   # Pipeline run logging model
-│   └── table_config.py       # Table configuration model
-├── repositories/
-│   ├── __init__.py
-│   ├── base.py              # Abstract base repository
-│   ├── pipeline_config.py    # Pipeline config repository
-│   ├── pipeline_run_logs.py  # Run logs repository
-│   └── table_config.py       # Table config repository
-└── utils/
-    ├── __init__.py
-    ├── pyspark_integration.py # PySpark utilities
-    └── timezone.py           # Timezone management
-```
-
-## ⚙️ Core Components
-
-### 1. Configuration System (`config/`)
-
-**Purpose**: Centralized configuration management with environment-specific settings.
-
-**Key Classes**:
-- `DynamoDBConfig`: Main configuration class with AWS credentials, region, and environment settings
-
-**Features**:
-- Environment variable integration
-- Factory methods for common scenarios
-- Timezone configuration support
-- Validation of required parameters
-
-### 2. Models (`models/`)
-
-**Purpose**: Pydantic-based data models ensuring type safety and validation.
-
-**Key Models**:
-- `PipelineConfig`: Pipeline configuration and metadata
-- `TableConfig`: Table schema and processing configuration  
-- `PipelineRunLog`: Execution logs and metrics
-- Supporting enums: `RunStatus`, `LogLevel`, `TableType`
-
-**Features**:
-- Automatic datetime serialization/deserialization
-- Timezone-aware datetime handling
-- Field validation and type conversion
-- JSON schema generation
-
-### 3. Repository Layer (`repositories/`)
-
-**Purpose**: Data access layer implementing the Repository pattern.
-
-**Architecture**:
-```python
-BaseDynamoRepository[T] (Abstract)
-├── Provides: CRUD operations, connection management, error handling
-├── Abstract methods: table_name, model_class, primary_key, sort_key
-└── Concrete implementations:
-    ├── PipelineConfigRepository
-    ├── TableConfigRepository
-    └── PipelineRunLogsRepository
-```
-
-**Key Features**:
-- Generic type safety
-- Lazy connection initialization
-- Automatic model conversion
-- Error handling and logging
-- Timezone-aware operations
-
-### 4. Exception System (`exceptions/`)
-
-**Purpose**: Hierarchical exception system for comprehensive error handling.
-
-**Architecture**:
-```python
-DynamoDBWrapperError (Base)
-├── ConnectionError       # AWS/DynamoDB connection issues
-├── ItemNotFoundError    # Item not found in database
-└── ValidationError      # Pydantic model validation failures
-```
-
-### 5. Utilities (`utils/`)
-
-**Purpose**: Supporting utilities for specialized functionality.
-
-**Components**:
-- `SparkDynamoDBIntegration`: PySpark integration utilities
-- `timezone`: Global timezone management functions
-
-## 🔄 Data Flow
-
-### 1. Basic Repository Operation Flow
-
-```
-Client Request
-    ↓
-Repository Method
-    ↓
-Model Validation (Pydantic)
-    ↓
-DynamoDB Item Conversion
-    ↓
-AWS DynamoDB API Call
-    ↓
-Response Processing
-    ↓
-Model Creation (Pydantic)
-    ↓
-Timezone Conversion (if specified)
-    ↓
-Return to Client
-```
-
-### 2. PySpark Integration Flow
-
-```
-Pipeline Trigger
-    ↓
-Context Manager Entry
-    ↓
-Run Log Creation
-    ↓
-Spark Session Creation
-    ↓
-Table Configuration Retrieval
-    ↓
-Data Processing (Spark)
-    ↓
-Statistics Update
-    ↓
-Run Status Update
-    ↓
-Context Manager Exit
-```
-
-## ⚙️ Configuration System
-
-### Configuration Hierarchy
-
-1. **Environment Variables** (highest priority)
-2. **Programmatic Configuration**
-3. **Factory Method Defaults** (lowest priority)
-
-### Key Configuration Areas
-
-```python
-# AWS Connection
-aws_access_key_id, aws_secret_access_key, region_name
-
-# DynamoDB Settings  
-endpoint_url, table_prefix
-
-# Environment
-environment (dev/staging/prod)
-
-# Timezone
-default_timezone, user_timezone, store_timestamps_in_utc
-
-# Debugging
-debug_logging
-```
-
-### Factory Methods
-
-```python
-# Local development with DynamoDB Local
-config = DynamoDBConfig.for_local_development()
-
-# PySpark environment with optimized settings
-config = DynamoDBConfig.for_pyspark()
-
-# Environment variable based configuration
-config = DynamoDBConfig.from_env()
-
-# Timezone-specific configuration
-config = DynamoDBConfig.with_timezone("Europe/London")
-```
-
-## 🚨 Error Handling Strategy
-
-### Exception Hierarchy
-
-The library implements a comprehensive exception hierarchy:
-
-```python
-DynamoDBWrapperError (Base)
-├── Attributes: message, original_error, context
-├── Methods: __str__(), __repr__() with context information
-├── ConnectionError
-│   ├── Use: AWS connection failures, network issues
-│   └── Context: endpoint_url, region, connection details
-├── ItemNotFoundError  
-│   ├── Use: DynamoDB item not found
-│   └── Context: table_name, key values, query details
-└── ValidationError
-    ├── Use: Pydantic model validation failures
-    └── Context: validation_errors with field-level details
-```
-
-### Error Handling Patterns
-
-1. **Connection Errors**: Automatic retry logic and connection pooling
-2. **Validation Errors**: Detailed field-level error reporting  
-3. **Item Not Found**: Explicit vs implicit handling (`get()` vs `get_or_raise()`)
-4. **Logging**: Structured logging with context information
-
-## 🧪 Testing Architecture
-
-### Test Organization
-
-```
-tests/
-├── unit/                    # Unit tests
-│   ├── test_base_repository.py
-│   ├── test_concrete_repositories.py  
-│   ├── test_config.py
-│   ├── test_models.py
-│   └── test_timezone.py
-├── integration/            # Integration tests
-└── conftest.py            # Pytest configuration
-```
-
-### Testing Patterns
-
-1. **Mocking Strategy**: Mock AWS services using `moto` library
-2. **Fixture System**: Reusable test fixtures for configuration and data
-3. **Parameterized Tests**: Test multiple scenarios with parameters
-4. **Coverage**: Comprehensive test coverage with pytest-cov
-
-### Test Configuration
-
-```python
-# pyproject.toml
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = ["--strict-markers", "--verbose"]
-```
-
-## ⚡ PySpark Integration
-
-### Integration Components
-
-1. **SparkDynamoDBIntegration**: Main integration class
-2. **Context Managers**: Automatic run logging and resource management
-3. **Configuration Bridge**: DynamoDB config to Spark configuration
-4. **Statistics Integration**: Automatic table statistics updates
-
-### Key Integration Points
-
-```python
-# Spark Session Creation
-spark = integration.create_spark_session(pipeline_id)
-
-# Table Configuration Retrieval
-read_options = integration.get_table_read_options(table_id)
-write_options = integration.get_table_write_options(table_id)
-
-# Automatic Run Logging
-with integration.pipeline_run_context(pipeline_id, trigger) as run_id:
-    # Spark operations
-```
-
-### Performance Optimizations
-
-- **Connection pooling**: Configurable pool sizes for DynamoDB connections (`max_pool_connections`)
-- **Retry logic**: Configurable retry attempts with exponential backoff (`retries`)
-- **Timeout management**: Separate read and connect timeout configuration (`timeout_seconds`)
-- **Lazy initialization**: DynamoDB resources and Spark sessions initialized on first use
-- **Caching**: Timezone manager instances cached per configuration
-- **Batch operations**: Statistics updates performed in batches where possible
-
-## 🌍 Timezone Management
-
-### Architecture Principles
-
-1. **UTC Storage**: All timestamps stored in UTC in DynamoDB
-2. **Display Conversion**: Convert to user timezone only for display
-3. **Global Configuration**: System-wide timezone defaults
-4. **Per-Operation Override**: Optional timezone parameter on methods
-5. **DST Handling**: Proper daylight saving time transitions
-
-### Implementation
-
-```python
-# Global timezone configuration
-set_global_timezone("America/Chicago")
-
-# Per-operation timezone
-pipeline = repo.get_by_pipeline_id(
-    "pipeline-id",
-    user_timezone="Europe/London"  # Optional override
-)
-
-# Timezone-aware creation
-pipeline = repo.create_pipeline_config(
-    ...,
-    current_timezone="Asia/Tokyo"  # Optional context
-)
-```
-
-### Timezone Utilities
-
-```python
-# Get current time in specific timezone
-london_time = now_in_tz("Europe/London")
-
-# Convert UTC to user timezone  
-user_time = convert_utc_to_user_tz(utc_time, "Australia/Sydney")
-
-# Validate timezone
-validate_timezone_string("America/New_York")
-```
-
-## 🔧 Extension Points
-
-### Adding New Models
-
-1. Create Pydantic model in `models/`
-2. Implement repository in `repositories/`
-3. Add to `__init__.py` exports
-4. Create comprehensive tests
-
-### Custom Repository Methods
-
-```python
-class CustomRepository(BaseDynamoRepository[CustomModel]):
-    def custom_query_method(self, **kwargs):
-        # Implementation using base repository methods
-        pass
-```
-
-### Configuration Extensions
-
-```python
-# Custom configuration factory
-@classmethod
-def for_custom_environment(cls):
-    return cls(
-        # Custom configuration
-    )
-```
-
-### PySpark Integration Extensions
-
-```python
-# Custom integration utilities
-def custom_spark_operation(integration, **kwargs):
-    with integration.pipeline_run_context(...) as run_id:
-        # Custom Spark operations
-        pass
-```
-
-## 🚀 Performance Considerations
-
-### Connection Management
-
-- Lazy initialization of AWS connections
-- Connection pooling and reuse
-- Configurable timeout settings
-
-### Data Processing
-
-- Batch operations where possible  
-- Efficient DynamoDB item conversions
-- Minimal memory footprint for large datasets
-
-### Caching Strategy
-
-- Configuration caching
-- Table schema caching
-- Connection pooling
-
-## 📈 Monitoring and Observability
-
-### Logging Strategy
-
-```python
-# Structured logging with context
-logger.info(
-    "Pipeline operation completed",
-    extra={
-        "pipeline_id": pipeline_id,
-        "operation": "create",
-        "duration_ms": duration,
-        "table_name": table_name
-    }
-)
-```
-
-### Metrics Integration
-
-- Operation timing metrics
-- Error rate monitoring  
-- Resource utilization tracking
-- Custom metric support
-
-## 🔮 Future Architecture Considerations
-
-### Planned Enhancements
-
-1. **Async Support**: AsyncIO-based repository implementations
-2. **Caching Layer**: Redis/ElastiCache integration
-3. **Schema Evolution**: Automatic model migration support
-4. **Multi-Region**: Cross-region replication support
-5. **GraphQL API**: GraphQL interface for data access
-
-### Scalability Patterns
-
-- Horizontal partitioning strategies
-- Read replica support
-- Event-driven architecture integration
-- Microservice decomposition patterns
-
-This architecture provides a solid foundation for building robust, scalable data pipeline applications while maintaining clean separation of concerns and comprehensive error handling.
+**Design Philosophy**: Optimize read and write operations separately while maintaining domain boundaries
+
+## 🚀 Performance & Benefits Comparison
+
+### **V1 Repository Benefits**
+- ✅ **Simplicity**: Easy to understand and use
+- ✅ **Familiarity**: Standard repository pattern
+- ✅ **Stability**: Production-proven with 94 tests
+- ✅ **Quick Setup**: Minimal configuration required
+
+### **V2 CQRS Benefits** 
+- 🎯 **Performance**: 50-80% payload reduction through view models
+- 📊 **Type Safety**: Meta class eliminates metadata inconsistencies
+- 🔄 **DynamoDB Optimization**: Native boolean conversion, flexible projections
+- 🧪 **Reliability**: 222 comprehensive tests including edge cases
+- ⚡ **Modern Python**: Native zoneinfo, Pydantic v2, enhanced type hints
+- 🏗️ **Maintainability**: Clear domain boundaries, SOLID principles
+- 📚 **Documentation**: TL;DR, Rule of Thumb, comprehensive guides
+
+## 🎯 Usage Recommendations
+
+### **Choose V1 When:**
+- ✅ Working with existing V1 codebases
+- ✅ Need maximum stability with minimal changes
+- ✅ Simple CRUD operations without performance optimization needs
+- ✅ Team familiarity with repository pattern is priority
+
+### **Choose V2 When:** (Recommended)
+- 🎯 **Starting new projects** - Modern architecture and comprehensive testing
+- ⚡ **Performance matters** - Need 50-80% payload reduction
+- 🔄 **Advanced DynamoDB features** - GSI optimization, boolean compatibility
+- 🧪 **Quality requirements** - Need comprehensive test coverage
+- 📊 **Type safety priority** - Meta class single source of truth
+- 🏗️ **Long-term maintainability** - CQRS and domain-driven design benefits
+
+## 📖 Documentation Structure
+
+### **Monorepo Documentation** (This Level)
+- High-level architecture comparison
+- Version recommendations and migration guidance
+- Cross-version development workflows
+
+### **V1 Documentation** (`dynamodb_wrapper_V1/`)
+- [V1 README](./dynamodb_wrapper_V1/README_V1.md): Repository pattern usage
+- [V1 Architecture](./dynamodb_wrapper_V1/ARCHITECTURE_V1.md): Detailed repository implementation
+
+### **V2 Documentation** (`dynamodb_wrapper_V2/`)
+- [V2 README](./dynamodb_wrapper_V2/README.md): CQRS pattern usage with examples
+- [V2 Architecture](./dynamodb_wrapper_V2/ARCHITECTURE.md): Comprehensive CQRS technical details with TL;DR
+- [V2 CLAUDE.md](./dynamodb_wrapper_V2/CLAUDE.md): AI assistant guidance with Rule of Thumb
+
+## 🔮 Future Direction
+
+**V2 is the recommended path forward** with modern architecture, comprehensive testing, and production-ready features. V1 remains available for legacy support and gradual migration scenarios.
+
+**Migration Strategy**: V2 provides clear migration path with improved APIs while maintaining familiar DynamoDB concepts.
