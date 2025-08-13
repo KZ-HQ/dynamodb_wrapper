@@ -6,29 +6,83 @@ from .exceptions import (
     ValidationError,
 )
 from .models import (
+    # Original models
     PipelineConfig,
     PipelineRunLog,
     TableConfig,
+    # CQRS View models
+    PipelineConfigView,
+    PipelineConfigSummaryView,
+    TableConfigView,
+    TableConfigSummaryView,
+    PipelineRunLogView,
+    PipelineRunLogSummaryView,
+    # CQRS DTOs
+    PipelineConfigUpsert,
+    TableConfigUpsert,
+    PipelineRunLogUpsert,
+    PipelineRunLogStatusUpdate,
 )
-from .repositories import (
-    BaseDynamoRepository,
-    PipelineConfigRepository,
-    PipelineRunLogsRepository,
-    TableConfigRepository,
+from .core import (
+    # TableGateway architecture
+    TableGateway,
+    create_table_gateway,
+)
+from .handlers.pipeline_config import (
+    # Pipeline Config CQRS APIs
+    PipelineConfigReadApi,
+    PipelineConfigWriteApi,
+)
+from .handlers.table_config import (
+    # Table Config CQRS APIs
+    TableConfigReadApi,
+    TableConfigWriteApi,
+)
+from .handlers.pipeline_run_logs import (
+    # Pipeline Run Logs CQRS APIs
+    PipelineRunLogsReadApi,
+    PipelineRunLogsWriteApi,
 )
 
-__version__ = "1.0.1"
+__version__ = "1.0.0"
 __all__ = [
-    "BaseDynamoRepository",
-    "PipelineConfigRepository",
-    "TableConfigRepository",
-    "PipelineRunLogsRepository",
-    "PipelineConfig",
-    "TableConfig",
-    "PipelineRunLog",
+    # Configuration
     "DynamoDBConfig",
+    
+    # Exceptions
     "DynamoDBWrapperError",
     "ItemNotFoundError",
     "ValidationError",
     "ConnectionError",
+    
+    # Original models
+    "PipelineConfig",
+    "TableConfig",
+    "PipelineRunLog",
+    
+    # CQRS View models (optimized for reads)
+    "PipelineConfigView",
+    "PipelineConfigSummaryView",
+    "TableConfigView",
+    "TableConfigSummaryView", 
+    "PipelineRunLogView",
+    "PipelineRunLogSummaryView",
+    
+    # CQRS DTOs (optimized for writes)
+    "PipelineConfigUpsert",
+    "TableConfigUpsert",
+    "PipelineRunLogUpsert",
+    "PipelineRunLogStatusUpdate",
+    
+    # TableGateway architecture
+    "TableGateway",
+    "create_table_gateway",
+    
+    # CQRS APIs
+    "PipelineConfigReadApi",
+    "PipelineConfigWriteApi",
+    "TableConfigReadApi",
+    "TableConfigWriteApi",
+    "PipelineRunLogsReadApi",
+    "PipelineRunLogsWriteApi",
 ]

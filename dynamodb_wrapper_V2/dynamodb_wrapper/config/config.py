@@ -69,15 +69,11 @@ class DynamoDBConfig(BaseModel):
         description="Enable debug logging for DynamoDB operations"
     )
 
-    # Timezone settings
-    default_timezone: str = Field(
-        default_factory=lambda: os.getenv("DYNAMODB_TIMEZONE", "UTC"),
-        description="Default timezone for datetime operations"
-    )
-
+    # Timezone settings - NOTE: Internal operations always use UTC for consistency
+    # Only user_timezone is configurable for display purposes
     store_timestamps_in_utc: bool = Field(
         default=True,
-        description="Store timestamps in UTC in DynamoDB (recommended)"
+        description="Store timestamps in UTC in DynamoDB (always True for data consistency)"
     )
 
     user_timezone: Optional[str] = Field(
@@ -102,7 +98,7 @@ class DynamoDBConfig(BaseModel):
             raise ValueError(f"Environment must be one of: {valid_environments}")
         return v
 
-    @field_validator('default_timezone', 'user_timezone')
+    @field_validator('user_timezone')
     @classmethod
     def validate_timezone(cls, v):
         """Validate timezone string."""
@@ -112,15 +108,7 @@ class DynamoDBConfig(BaseModel):
         # Try to create ZoneInfo to validate timezone
         try:
             # Import here to avoid circular imports
-            import sys
-            if sys.version_info >= (3, 9):
-                from zoneinfo import ZoneInfo
-            else:
-                try:
-                    from backports.zoneinfo import ZoneInfo  # type: ignore
-                except ImportError:
-                    from zoneinfo import ZoneInfo  # type: ignore
-
+            from zoneinfo import ZoneInfo
             ZoneInfo(v)
             return v
         except Exception:
@@ -210,31 +198,25 @@ class DynamoDBConfig(BaseModel):
         return config
 
     @classmethod
-    def with_timezone(cls, timezone_str: str, **kwargs) -> 'DynamoDBConfig':
-        """Create configuration with specific timezone.
+    def with_user_timezone(cls, user_timezone: str, **kwargs) -> 'DynamoDBConfig':
+        """Create configuration with specific user display timezone.
 
         Args:
-            timezone_str: Timezone string (e.g., 'America/New_York')
+            user_timezone: User timezone string for display purposes (e.g., 'America/New_York')
             **kwargs: Additional configuration parameters
 
         Returns:
-            DynamoDBConfig instance with timezone configuration
+            DynamoDBConfig instance with user timezone configuration
+            
+        Note:
+            Internal operations always use UTC for consistency. This only affects
+            display conversion in handler layer read operations.
         """
         config = cls(**kwargs)
-        config.default_timezone = timezone_str
+        config.user_timezone = user_timezone
         return config
 
-    def get_timezone_manager(self):
-        """Get a TimezoneManager configured with this config's settings.
-
-        Returns:
-            TimezoneManager instance (cached)
-        """
-        if not hasattr(self, '_timezone_manager') or self._timezone_manager is None:
-            # Import here to avoid circular imports (config -> utils -> models -> config)
-            from ..utils.timezone import TimezoneManager
-            self._timezone_manager = TimezoneManager(self.default_timezone)
-        return self._timezone_manager
+# get_timezone_manager method removed - no longer needed with simplified timezone utilities
 
     model_config = ConfigDict(
         validate_assignment=True,

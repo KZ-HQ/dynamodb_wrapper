@@ -1,16 +1,51 @@
-from .pipeline_config import PipelineConfig
-from .pipeline_run_log import (
-    DataQualityResult,
-    LogLevel,
+# Base mixins and utilities
+from .base import (
+    DateTimeMixin,
+    AuditMixin,
+)
+
+# Core domain models (consolidated from 3 separate files)
+from .domain_models import (
+    # Pipeline Configuration Domain
+    PipelineConfig,
+    
+    # Table Configuration Domain
+    TableConfig,
+    TableType,
+    DataFormat,
+    
+    # Pipeline Run Log Domain
     PipelineRunLog,
     RunStatus,
+    LogLevel,
     StageInfo,
+    DataQualityResult,
 )
-from .table_config import DataFormat, TableConfig, TableType
+
+# New CQRS-optimized models
+from .views import (
+    PipelineConfigView,
+    PipelineConfigSummaryView,
+    TableConfigView,
+    TableConfigSummaryView,
+    PipelineRunLogView,
+    PipelineRunLogSummaryView,
+)
+from .dtos import (
+    PipelineConfigUpsert,
+    TableConfigUpsert,
+    PipelineRunLogUpsert,
+    PipelineRunLogStatusUpdate,
+)
 
 __all__ = [
+    # Base mixins and utilities
+    "DateTimeMixin",
+    "AuditMixin",
+    
+    # Original models
     "PipelineConfig",
-    "TableConfig",
+    "TableConfig", 
     "TableType",
     "DataFormat",
     "PipelineRunLog",
@@ -18,4 +53,18 @@ __all__ = [
     "LogLevel",
     "StageInfo",
     "DataQualityResult",
+    
+    # CQRS Read Models (Views)
+    "PipelineConfigView",
+    "PipelineConfigSummaryView",
+    "TableConfigView", 
+    "TableConfigSummaryView",
+    "PipelineRunLogView",
+    "PipelineRunLogSummaryView",
+    
+    # CQRS Write Models (DTOs)
+    "PipelineConfigUpsert",
+    "TableConfigUpsert",
+    "PipelineRunLogUpsert",
+    "PipelineRunLogStatusUpdate",
 ]

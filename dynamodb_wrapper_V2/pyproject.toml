@@ -1,19 +1,18 @@
 [project]
 name = "dynamodb-wrapper-v2"
 version = "1.0.0"
-description = "A comprehensive Python library that provides a repository pattern wrapper around AWS DynamoDB using boto3 and Pydantic, specifically designed for PySpark pipeline environments."
+description = "A comprehensive Python library that provides a CQRS (Command Query Responsibility Segregation) wrapper around AWS DynamoDB using boto3 and Pydantic, with model-driven key management and type-safe domain operations."
 authors = [
     {name = "Keith Zhu", email = "keithzhu.huiqi@outlook.com"}
 ]
-readme = "README_V2.md"
-requires-python = ">=3.8"
+readme = "README.md"
+requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -21,7 +20,7 @@ classifiers = [
     "Topic :: Database",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-keywords = ["dynamodb", "aws", "pydantic", "pyspark", "repository-pattern"]
+keywords = ["dynamodb", "aws", "pydantic", "cqrs", "model-driven", "type-safe"]
 
 dependencies = [
     "boto3>=1.26.0",
@@ -29,7 +28,6 @@ dependencies = [
     "pyspark>=3.3.0",
     "python-dotenv>=1.0.0",
     "typing-extensions>=4.5.0",
-    "backports.zoneinfo>=0.2.1;python_version<'3.9'",
 ]
 
 [project.optional-dependencies]
@@ -83,7 +81,7 @@ filterwarnings = [
 
 [tool.black]
 line-length = 88
-target-version = ["py38", "py39", "py310", "py311", "py312"]
+target-version = ["py39", "py310", "py311", "py312"]
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -101,7 +99,7 @@ extend-exclude = '''
 '''
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 88
 
 [tool.ruff.lint]
@@ -125,7 +123,7 @@ ignore = [
 "tests/**/*" = ["B011"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true

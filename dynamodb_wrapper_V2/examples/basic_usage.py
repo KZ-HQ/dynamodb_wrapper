@@ -1,30 +1,39 @@
 #!/usr/bin/env python3
 """
-Basic usage examples for the DynamoDB wrapper library.
+Basic usage examples for the DynamoDB wrapper library V2.
 
-This example demonstrates:
+This example demonstrates the new CQRS architecture:
 1. Setting up configuration
-2. Creating and managing pipeline configurations
-3. Creating and managing table configurations
-4. Creating and tracking pipeline run logs
-5. Basic CRUD operations
+2. Using separate read/write APIs for pipeline configurations
+3. Using separate read/write APIs for table configurations
+4. Using separate read/write APIs for pipeline run logs
+5. Optimized projections and validated DTOs
 """
 
 from datetime import datetime
 from decimal import Decimal
 
-from dynamodb_wrapper_V2.dynamodb_wrapper import (
+from dynamodb_wrapper import (
     DynamoDBConfig,
-    PipelineConfigRepository,
-    PipelineRunLogsRepository,
-    TableConfigRepository,
+    # Pipeline Config CQRS APIs
+    PipelineConfigReadApi,
+    PipelineConfigWriteApi,
+    PipelineConfigUpsert,
+    # Table Config CQRS APIs  
+    TableConfigReadApi,
+    TableConfigWriteApi,
+    TableConfigUpsert,
+    # Pipeline Run Logs CQRS APIs
+    PipelineRunLogsReadApi,
+    PipelineRunLogsWriteApi,
+    PipelineRunLogUpsert,
+    PipelineRunLogStatusUpdate,
 )
-from dynamodb_wrapper_V2.dynamodb_wrapper.models.pipeline_run_log import RunStatus
-from dynamodb_wrapper_V2.dynamodb_wrapper.models.table_config import DataFormat, TableType
+from dynamodb_wrapper.models.domain_models import RunStatus, DataFormat, TableType
 
 
 def main():
-    """Demonstrate basic usage of the DynamoDB wrapper."""
+    """Demonstrate basic usage of the CQRS DynamoDB wrapper."""
 
     # 1. Configure DynamoDB connection
     print("1. Setting up DynamoDB configuration...")
@@ -33,20 +42,23 @@ def main():
     # For local development, you might use:
     # config = DynamoDBConfig.for_local_development()
 
-    # 2. Initialize repositories
-    print("2. Initializing repositories...")
-    pipeline_repo = PipelineConfigRepository(config)
-    table_repo = TableConfigRepository(config)
-    logs_repo = PipelineRunLogsRepository(config)
+    # 2. Initialize CQRS APIs (separate read/write)
+    print("2. Initializing CQRS APIs...")
+    pipeline_read_api = PipelineConfigReadApi(config)
+    pipeline_write_api = PipelineConfigWriteApi(config)
+    table_read_api = TableConfigReadApi(config)
+    table_write_api = TableConfigWriteApi(config)
+    logs_read_api = PipelineRunLogsReadApi(config)
+    logs_write_api = PipelineRunLogsWriteApi(config)
 
-    # 3. Create a pipeline configuration
+    # 3. Create a pipeline configuration using validated DTO
     print("3. Creating pipeline configuration...")
-    pipeline_config = pipeline_repo.create_pipeline_config(
+    pipeline_dto = PipelineConfigUpsert(
         pipeline_id="sales-analytics-pipeline",
         pipeline_name="Sales Analytics Pipeline",
         description="Daily sales data processing pipeline",
         source_type="s3",
-        destination_type="redshift",
+        destination_type="warehouse",  # Updated to valid type
         schedule_expression="0 9 * * *",  # Daily at 9 AM
         environment="dev",
         spark_config={
@@ -58,13 +70,14 @@ def main():
         tags={"team": "analytics", "project": "sales"},
         created_by="data_engineer"
     )
+    pipeline_config = pipeline_write_api.create_pipeline(pipeline_dto)
     print(f"Created pipeline: {pipeline_config.pipeline_id}")
 
-    # 4. Create table configurations
+    # 4. Create table configurations using validated DTOs
     print("4. Creating table configurations...")
 
     # Source table configuration
-    source_table = table_repo.create_table_config(
+    source_dto = TableConfigUpsert(
         table_id="sales-raw-data",
         pipeline_id=pipeline_config.pipeline_id,
         table_name="sales_raw",
@@ -83,11 +96,13 @@ def main():
         read_options={
             "multiline": True,
             "inferSchema": False
-        }
+        },
+        created_by="data_engineer"
     )
+    source_table = table_write_api.create_table(source_dto)
 
     # Destination table configuration
-    dest_table = table_repo.create_table_config(
+    dest_dto = TableConfigUpsert(
         table_id="sales-processed-data",
         pipeline_id=pipeline_config.pipeline_id,
         table_name="sales_processed",
@@ -97,61 +112,82 @@ def main():
         partition_columns=["year", "month"],
         write_options={
             "compression": "snappy"
-        }
+        },
+        created_by="data_engineer"
     )
+    dest_table = table_write_api.create_table(dest_dto)
 
     print(f"Created source table: {source_table.table_id}")
     print(f"Created destination table: {dest_table.table_id}")
 
-    # 5. Create a pipeline run log
+    # 5. Create a pipeline run log using validated DTO
     print("5. Creating pipeline run log...")
-    run_log = logs_repo.create_run_log(
+    run_dto = PipelineRunLogUpsert(
         run_id="run-20241210-001",
         pipeline_id=pipeline_config.pipeline_id,
         trigger_type="schedule",
+        status=RunStatus.PENDING,
         created_by="scheduler"
     )
+    run_log = logs_write_api.create_run_log(run_dto)
     print(f"Created run log: {run_log.run_id}")
 
     # 6. Update run status as pipeline progresses
     print("6. Updating pipeline run status...")
 
-    # Start the run
-    logs_repo.update_run_status(run_log.run_id, RunStatus.RUNNING)
+    # Start the run using status update DTO
+    start_update = PipelineRunLogStatusUpdate(
+        status=RunStatus.RUNNING
+    )
+    logs_write_api.update_run_status_with_dto(run_log.run_id, start_update)
 
     # Simulate pipeline completion
     end_time = datetime.now()
-    logs_repo.update_run_status(
-        run_log.run_id,
-        RunStatus.SUCCESS,
+    completion_update = PipelineRunLogStatusUpdate(
+        status=RunStatus.SUCCESS,
         end_time=end_time
     )
+    logs_write_api.update_run_status_with_dto(run_log.run_id, completion_update)
     print("Pipeline run completed successfully")
 
-    # 7. Query examples
-    print("7. Querying data...")
+    # 7. Query examples (using optimized read APIs)
+    print("7. Querying data with optimized projections...")
 
-    # Get pipeline configuration
-    retrieved_pipeline = pipeline_repo.get_by_pipeline_id(pipeline_config.pipeline_id)
+    # Get pipeline configuration (returns optimized view model)
+    retrieved_pipeline = pipeline_read_api.get_by_id(pipeline_config.pipeline_id)
     print(f"Retrieved pipeline: {retrieved_pipeline.pipeline_name}")
 
-    # Get all active pipelines
-    active_pipelines = pipeline_repo.get_active_pipelines()
+    # Get pipeline summary (minimal projection)
+    pipeline_summary = pipeline_read_api.get_pipeline_summary(pipeline_config.pipeline_id)
+    print(f"Pipeline summary active status: {pipeline_summary.is_active}")
+
+    # Get active pipelines with custom projection (reduces RCUs)
+    active_pipelines, _ = pipeline_read_api.query_active_pipelines(
+        projection=['pipeline_id', 'pipeline_name', 'environment'],
+        limit=10
+    )
     print(f"Active pipelines: {len(active_pipelines)}")
 
     # Get tables for pipeline
-    pipeline_tables = table_repo.get_tables_by_pipeline(pipeline_config.pipeline_id)
+    pipeline_tables, _ = table_read_api.query_by_pipeline(
+        pipeline_config.pipeline_id,
+        projection=['table_id', 'table_name', 'table_type']
+    )
     print(f"Tables for pipeline: {len(pipeline_tables)}")
 
-    # Get recent runs
-    recent_runs = logs_repo.get_runs_by_pipeline(pipeline_config.pipeline_id, limit=10)
+    # Get recent runs with minimal projection
+    recent_runs, _ = logs_read_api.query_by_pipeline(
+        pipeline_config.pipeline_id,
+        projection=['run_id', 'status', 'start_time'],
+        limit=10
+    )
     print(f"Recent runs: {len(recent_runs)}")
 
-    # 8. Update examples
+    # 8. Update examples (using write APIs)
     print("8. Updating configurations...")
 
     # Update pipeline status
-    pipeline_repo.update_pipeline_status(
+    pipeline_write_api.update_pipeline_status(
         pipeline_config.pipeline_id,
         is_active=False,
         updated_by="admin"
@@ -159,7 +195,7 @@ def main():
     print("Pipeline deactivated")
 
     # Update table statistics
-    table_repo.update_table_statistics(
+    table_write_api.update_table_statistics(
         source_table.table_id,
         record_count=10000,
         size_bytes=5000000,
@@ -167,7 +203,14 @@ def main():
     )
     print("Table statistics updated")
 
-    print("\nBasic usage example completed successfully!")
+    print("\n✅ V2 CQRS Architecture Example Completed!")
+    print("\nKey V2 Features Demonstrated:")
+    print("• Separate Read/Write APIs for optimized operations")
+    print("• Validated DTOs with comprehensive business rules")
+    print("• Optimized view models with reduced payload sizes")
+    print("• Custom projections to minimize RCU consumption")
+    print("• Safe handling of DynamoDB reserved words")
+    print("• Pagination support with proper last_key handling")
 
 
 if __name__ == "__main__":

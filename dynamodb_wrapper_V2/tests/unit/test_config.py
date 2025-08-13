@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from dynamodb_wrapper_V2.dynamodb_wrapper.config import DynamoDBConfig
+from dynamodb_wrapper.config import DynamoDBConfig
 
 
 class TestDynamoDBConfig:
