@@ -131,6 +131,9 @@ class PipelineConfigWriteApi:
             # Convert datetime objects to ISO strings for DynamoDB
             if isinstance(value, datetime):
                 expression_values[attr_value] = value.isoformat()
+            # Convert boolean to string for GSI compatibility
+            elif isinstance(value, bool):
+                expression_values[attr_value] = 'true' if value else 'false'
             else:
                 expression_values[attr_value] = value
             

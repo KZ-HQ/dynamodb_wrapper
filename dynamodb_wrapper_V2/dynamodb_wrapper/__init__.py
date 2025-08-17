@@ -1,5 +1,6 @@
 from .config import DynamoDBConfig
 from .exceptions import (
+    ConflictError,
     ConnectionError,
     DynamoDBWrapperError,
     ItemNotFoundError,
@@ -10,6 +11,14 @@ from .models import (
     PipelineConfig,
     PipelineRunLog,
     TableConfig,
+    # Enums
+    RunStatus,
+    LogLevel,
+    TableType,
+    DataFormat,
+    # Model components
+    StageInfo,
+    DataQualityResult,
     # CQRS View models
     PipelineConfigView,
     PipelineConfigSummaryView,
@@ -50,15 +59,26 @@ __all__ = [
     "DynamoDBConfig",
     
     # Exceptions
+    "ConflictError",
+    "ConnectionError",
     "DynamoDBWrapperError",
     "ItemNotFoundError",
     "ValidationError",
-    "ConnectionError",
     
     # Original models
     "PipelineConfig",
     "TableConfig",
     "PipelineRunLog",
+    
+    # Enums
+    "RunStatus",
+    "LogLevel",
+    "TableType",
+    "DataFormat",
+    
+    # Model components
+    "StageInfo",
+    "DataQualityResult",
     
     # CQRS View models (optimized for reads)
     "PipelineConfigView",

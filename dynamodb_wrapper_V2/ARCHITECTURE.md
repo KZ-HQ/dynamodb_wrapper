@@ -5,7 +5,7 @@
 **What**: CQRS DynamoDB wrapper with Meta class single source of truth  
 **Why**: Optimized read/write separation, type-safe operations, DynamoDB compatibility  
 **Key Patterns**: ReadApi/WriteApi separation, Meta class metadata, boolean-to-string GSI conversion  
-**Testing**: 222/222 tests passing (218 unit + 4 integration) with comprehensive edge case coverage  
+**Testing**: 230/230 tests passing (218 unit + 12 integration) with comprehensive edge case coverage  
 **Timezone**: UTC-only storage, handler-layer conversion, Python 3.9+ zoneinfo  
 
 **Quick Start**: Use `*ReadApi` for queries with projections, `*WriteApi` for validated writes with DTOs, Meta class defines all keys/GSIs, timezone conversion at handler boundaries only.
@@ -354,7 +354,7 @@ Type Safety → Partition/Sort Keys → GSI Definitions → DynamoDB Operations
 
 ## 🧪 Testing Strategy
 
-The V2 codebase maintains **comprehensive test coverage** with **222 tests passing** (218 unit + 4 integration).
+The V2 codebase maintains **comprehensive test coverage** with **230 tests passing** (218 unit + 12 integration).
 
 ### Layer Testing
 - **Unit Tests** (218 passing): Test each component independently with comprehensive mocking
@@ -406,7 +406,7 @@ The V2 codebase maintains **comprehensive test coverage** with **222 tests passi
 - **Clear separation of concerns** between read and write operations
 - **Domain boundaries** prevent cross-domain coupling
 - **Unified utilities** eliminate code duplication across domains
-- **Comprehensive test coverage** (222/222 tests passing) ensures reliability
+- **Comprehensive test coverage** (230/230 tests passing) ensures reliability
 
 ### 6. **Developer Experience**
 - **Single source of truth** eliminates confusion about model metadata

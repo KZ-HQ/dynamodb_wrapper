@@ -446,6 +446,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyspark" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "typing-extensions" },
 ]
 
@@ -457,6 +458,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "requests" },
     { name = "ruff" },
 ]
 test = [
@@ -464,6 +466,7 @@ test = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -474,6 +477,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "requests" },
     { name = "ruff" },
 ]
 
@@ -493,6 +497,9 @@ requires-dist = [
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.10.0" },
     { name = "pytest-mock", marker = "extra == 'test'", specifier = ">=3.10.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "requests", specifier = ">=2.32.4" },
+    { name = "requests", marker = "extra == 'dev'", specifier = ">=2.31.0" },
+    { name = "requests", marker = "extra == 'test'", specifier = ">=2.31.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "typing-extensions", specifier = ">=4.5.0" },
 ]
@@ -506,6 +513,7 @@ dev = [
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
     { name = "pytest-mock", specifier = ">=3.10.0" },
+    { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", specifier = ">=0.1.0" },
 ]
 

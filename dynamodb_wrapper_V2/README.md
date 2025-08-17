@@ -13,7 +13,7 @@ A comprehensive Python library that provides a **Command Query Responsibility Se
 - 🚨 **Domain-Specific Exceptions**: Comprehensive error handling with detailed context
 - 📝 **Proper Upsert Semantics**: Timestamp preservation and true upsert behavior
 - 📈 **Pipeline Management**: Complete CQRS APIs for pipelines, tables, and run logs
-- 🧪 **Comprehensive Test Coverage**: 222 total tests (218 unit + 4 integration) covering all critical scenarios and edge cases
+- 🧪 **Comprehensive Test Coverage**: 230 total tests (218 unit + 12 integration) covering all critical scenarios and edge cases
 
 ## 🏛️ Architecture Overview
 
@@ -23,7 +23,7 @@ The V2 architecture implements clean **Command Query Responsibility Segregation 
 - **📊 Meta Class Single Source**: Model metadata centralized in domain model Meta classes  
 - **🔄 DynamoDB Compatibility**: Automatic boolean-to-string conversion for GSI keys
 - **🌍 Modern Python**: Python 3.9+ native zoneinfo timezone support
-- **🧪 Comprehensive Testing**: 222 total tests (218 unit + 4 integration) covering all critical scenarios and edge cases
+- **🧪 Comprehensive Testing**: 230 total tests (218 unit + 12 integration) covering all critical scenarios and edge cases
 
 > **📖 For detailed architecture documentation, see [ARCHITECTURE.md](./ARCHITECTURE.md)**
 > 
@@ -261,7 +261,7 @@ uv run pytest tests/integration/
 # Run with coverage
 uv run pytest --cov=dynamodb_wrapper
 
-# Test results: 222/222 tests passing ✅
+# Test results: 230/230 tests passing ✅
 # - Unit Tests: 218 passing  
 # - Integration Tests: 4 passing
 ```

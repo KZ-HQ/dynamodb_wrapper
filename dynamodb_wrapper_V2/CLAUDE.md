@@ -44,7 +44,7 @@ The library follows a **CQRS (Command Query Responsibility Segregation)** archit
 - **📊 Meta Class Single Source**: Model metadata centralized in domain model Meta classes  
 - **🔄 DynamoDB Compatibility**: Automatic boolean-to-string conversion for GSI keys
 - **🌍 Modern Python**: Python 3.9+ native zoneinfo timezone support
-- **🧪 Comprehensive Testing**: 222 total tests (218 unit + 4 integration) covering all critical scenarios and edge cases
+- **🧪 Comprehensive Testing**: 230 total tests (218 unit + 12 integration) covering all critical scenarios and edge cases
 
 > **📖 For complete architecture documentation, see [ARCHITECTURE.md](./ARCHITECTURE.md)**
 > 
