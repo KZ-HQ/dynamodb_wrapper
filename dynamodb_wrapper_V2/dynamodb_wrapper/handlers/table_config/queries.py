@@ -16,8 +16,8 @@ from typing import List, Optional, Tuple
 from boto3.dynamodb.conditions import Key, Attr
 
 from ...config import DynamoDBConfig
-from ...models import TableConfig, TableType, TableConfigView, TableConfigSummaryView
-from ...utils import item_to_model, build_projection_expression
+from ...models import TableType, TableConfigView, TableConfigSummaryView
+from ...utils import build_projection_expression
 from ...core import create_table_gateway
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ class TableConfigReadApi:
         if 'Item' not in response:
             return None
             
-        return item_to_model(response['Item'], TableConfigView)
+        return TableConfigView.from_dynamodb_item(response['Item'])
 
     def query_by_pipeline(
         self,
@@ -148,7 +148,7 @@ class TableConfigReadApi:
             response = self.gateway.query(**query_kwargs)
             
             items = [
-                item_to_model(item, TableConfigView)
+                TableConfigView.from_dynamodb_item(item)
                 for item in response.get('Items', [])
             ]
             
@@ -210,7 +210,7 @@ class TableConfigReadApi:
             response = self.gateway.query(**query_kwargs)
             
             items = [
-                item_to_model(item, TableConfigView)
+                TableConfigView.from_dynamodb_item(item)
                 for item in response.get('Items', [])
             ]
             
@@ -356,7 +356,7 @@ class TableConfigReadApi:
             response = self.gateway.scan(**scan_kwargs)
             
             items = [
-                item_to_model(item, TableConfigView)
+                TableConfigView.from_dynamodb_item(item)
                 for item in response.get('Items', [])
             ]
             
@@ -412,7 +412,7 @@ class TableConfigReadApi:
             response = self.gateway.scan(**scan_kwargs)
             
             items = [
-                item_to_model(item, TableConfigView)
+                TableConfigView.from_dynamodb_item(item)
                 for item in response.get('Items', [])
             ]
             
@@ -457,7 +457,7 @@ class TableConfigReadApi:
         if 'Item' not in response:
             return None
             
-        return item_to_model(response['Item'], TableConfigSummaryView)
+        return TableConfigSummaryView.from_dynamodb_item(response['Item'])
 
     def count_tables_by_pipeline(self, pipeline_id: str) -> int:
         """

@@ -11,14 +11,13 @@ All methods return (items, last_key) tuples for proper pagination handling.
 """
 
 import logging
-from datetime import datetime
 from typing import List, Optional, Tuple
 
 from boto3.dynamodb.conditions import Key, Attr
 
 from ...config import DynamoDBConfig
-from ...models import PipelineConfig, PipelineConfigView, PipelineConfigSummaryView
-from ...utils import item_to_model, build_projection_expression, build_filter_expression
+from ...models import PipelineConfigView, PipelineConfigSummaryView
+from ...utils import build_projection_expression
 from ...core import create_table_gateway
 
 logger = logging.getLogger(__name__)
@@ -91,7 +90,7 @@ class PipelineConfigReadApi:
             if 'Item' not in response:
                 return None
                 
-            return item_to_model(response['Item'], PipelineConfigView)
+            return PipelineConfigView.from_dynamodb_item(response['Item'])
         except Exception as e:
             # TableGateway already maps ClientError to domain exceptions,
             # but we catch any other potential errors here
@@ -142,7 +141,7 @@ class PipelineConfigReadApi:
             response = self.gateway.query(**query_kwargs)
             
             items = [
-                item_to_model(item, PipelineConfigView)
+                PipelineConfigView.from_dynamodb_item(item)
                 for item in response.get('Items', [])
             ]
             
@@ -197,7 +196,7 @@ class PipelineConfigReadApi:
             response = self.gateway.query(**query_kwargs)
             
             items = [
-                item_to_model(item, PipelineConfigView)
+                PipelineConfigView.from_dynamodb_item(item)
                 for item in response.get('Items', [])
             ]
             
@@ -255,7 +254,7 @@ class PipelineConfigReadApi:
             response = self.gateway.query(**query_kwargs)
             
             items = [
-                item_to_model(item, PipelineConfigView)
+                PipelineConfigView.from_dynamodb_item(item)
                 for item in response.get('Items', [])
             ]
             
@@ -309,7 +308,7 @@ class PipelineConfigReadApi:
             response = self.gateway.scan(**scan_kwargs)
             
             items = [
-                item_to_model(item, PipelineConfigView)
+                PipelineConfigView.from_dynamodb_item(item)
                 for item in response.get('Items', [])
             ]
             
@@ -354,7 +353,7 @@ class PipelineConfigReadApi:
         if 'Item' not in response:
             return None
             
-        return item_to_model(response['Item'], PipelineConfigSummaryView)
+        return PipelineConfigSummaryView.from_dynamodb_item(response['Item'])
 
     def count_pipelines_by_environment(self, environment: str) -> int:
         """

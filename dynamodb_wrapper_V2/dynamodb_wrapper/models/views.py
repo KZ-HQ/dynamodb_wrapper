@@ -16,14 +16,15 @@ Key benefits:
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel, Field
 
-from .domain_models import RunStatus, LogLevel, TableType, DataFormat
+from .base import DynamoDBMixin
+from .domain_models import RunStatus, TableType, DataFormat
 
 
-class PipelineConfigView(BaseModel):
+class PipelineConfigView(DynamoDBMixin, BaseModel):
     """
     Read-optimized view of pipeline configuration.
     
@@ -64,7 +65,7 @@ class PipelineConfigView(BaseModel):
     updated_by: Optional[str] = Field(None, description="User who last updated the pipeline")
 
 
-class TableConfigView(BaseModel):
+class TableConfigView(DynamoDBMixin, BaseModel):
     """
     Read-optimized view of table configuration.
     
@@ -110,7 +111,7 @@ class TableConfigView(BaseModel):
     updated_by: Optional[str] = Field(None, description="User who last updated the configuration")
 
 
-class PipelineRunLogView(BaseModel):
+class PipelineRunLogView(DynamoDBMixin, BaseModel):
     """
     Read-optimized view of pipeline run log.
     
@@ -162,7 +163,7 @@ class PipelineRunLogView(BaseModel):
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
 
 
-class PipelineRunLogSummaryView(BaseModel):
+class PipelineRunLogSummaryView(DynamoDBMixin, BaseModel):
     """
     Ultra-minimal view for pipeline run summaries.
     
@@ -181,7 +182,7 @@ class PipelineRunLogSummaryView(BaseModel):
     error_message: Optional[str] = Field(None, description="Error message if run failed")
 
 
-class PipelineConfigSummaryView(BaseModel):
+class PipelineConfigSummaryView(DynamoDBMixin, BaseModel):
     """
     Ultra-minimal view for pipeline summaries.
     
@@ -198,7 +199,7 @@ class PipelineConfigSummaryView(BaseModel):
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
 
 
-class TableConfigSummaryView(BaseModel):
+class TableConfigSummaryView(DynamoDBMixin, BaseModel):
     """
     Ultra-minimal view for table summaries.
     

@@ -17,9 +17,8 @@ from typing import Dict, List, Optional, Any
 from boto3.dynamodb.conditions import Attr
 
 from ...config import DynamoDBConfig
-from ...exceptions import ItemNotFoundError, ValidationError, ConnectionError
-from ...models import TableConfig, TableType, TableConfigUpsert
-from ...utils import model_to_item
+from ...exceptions import ValidationError
+from ...models import TableConfig, TableConfigUpsert
 from ...core import create_table_gateway
 
 logger = logging.getLogger(__name__)
@@ -73,7 +72,7 @@ class TableConfigWriteApi:
             raise ValidationError(f"Invalid table data: {e}") from e
             
         # Convert to DynamoDB item
-        item = model_to_item(table)
+        item = table.to_dynamodb_item()
         
         # Default condition prevents accidental overwrites
         if condition_expression is None:
@@ -278,7 +277,7 @@ class TableConfigWriteApi:
         except Exception as e:
             raise ValidationError(f"Invalid table data: {e}") from e
             
-        item = model_to_item(table)
+        item = table.to_dynamodb_item()
         
         self.gateway.put_item(item)  # No condition - allows overwrite
         logger.info(f"Upserted table config: {table.table_id}")
@@ -327,7 +326,7 @@ class TableConfigWriteApi:
         # Batch write using context manager
         with self.gateway.batch_writer() as batch:
             for table in validated_tables:
-                item = model_to_item(table)
+                item = table.to_dynamodb_item()
                 batch.put_item(Item=item)
                 
         logger.info(f"Bulk upserted {len(validated_tables)} table configs")

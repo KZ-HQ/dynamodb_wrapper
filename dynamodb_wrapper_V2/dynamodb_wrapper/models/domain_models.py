@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .base import DateTimeMixin
+from .base import DateTimeMixin, DynamoDBMixin
 
 
 # =============================================================================
@@ -54,8 +54,13 @@ class TableMeta:
     gsis: List[GSIDefinition] = []
     
     @classmethod
-    def get_primary_key_fields(cls) -> List[str]:
-        """Get primary key field names."""
+    def get_key_fields(cls) -> List[str]:
+        """Get DynamoDB item key field names.
+        
+        Returns the list of fields that form the DynamoDB item key:
+        - For simple keys: [partition_key]
+        - For composite keys: [partition_key, sort_key]
+        """
         fields = [cls.partition_key]
         if cls.sort_key:
             fields.append(cls.sort_key)
@@ -79,7 +84,7 @@ class TableMeta:
 # Pipeline Configuration Domain
 # =============================================================================
 
-class PipelineConfig(DateTimeMixin, BaseModel):
+class PipelineConfig(DynamoDBMixin, DateTimeMixin, BaseModel):
     """
     Core domain model for pipeline configuration data.
     
@@ -171,7 +176,7 @@ class DataFormat(str, Enum):
     DELTA = "delta"
 
 
-class TableConfig(DateTimeMixin, BaseModel):
+class TableConfig(DynamoDBMixin, DateTimeMixin, BaseModel):
     """
     Core domain model for table configuration data.
     
@@ -278,7 +283,7 @@ class LogLevel(str, Enum):
     CRITICAL = "critical"
 
 
-class StageInfo(DateTimeMixin, BaseModel):
+class StageInfo(DynamoDBMixin, DateTimeMixin, BaseModel):
     """
     Information about a specific stage in a pipeline execution.
     
@@ -310,7 +315,7 @@ class DataQualityResult(BaseModel):
     error_message: Optional[str] = Field(None, description="Error message if check failed")
 
 
-class PipelineRunLog(DateTimeMixin, BaseModel):
+class PipelineRunLog(DynamoDBMixin, DateTimeMixin, BaseModel):
     """
     Core domain model for pipeline execution logs.
     

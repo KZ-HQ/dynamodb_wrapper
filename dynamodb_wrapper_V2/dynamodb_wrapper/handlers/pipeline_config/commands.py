@@ -12,7 +12,6 @@ All write operations include safety checks and optimistic locking where appropri
 
 import logging
 import time
-import sys
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 
@@ -20,9 +19,8 @@ from boto3.dynamodb.conditions import Attr
 from botocore.exceptions import ClientError
 
 from ...config import DynamoDBConfig
-from ...exceptions import ItemNotFoundError, ValidationError, ConnectionError, ConflictError
+from ...exceptions import ValidationError, ConnectionError
 from ...models import PipelineConfig, PipelineConfigUpsert
-from ...utils import model_to_item
 from ...core import create_table_gateway
 
 logger = logging.getLogger(__name__)
@@ -76,7 +74,7 @@ class PipelineConfigWriteApi:
             raise ValidationError(f"Invalid pipeline data: {e}") from e
             
         # Convert to DynamoDB item
-        item = model_to_item(pipeline)
+        item = pipeline.to_dynamodb_item()
         
         # Default condition prevents accidental overwrites
         if condition_expression is None:
@@ -275,7 +273,7 @@ class PipelineConfigWriteApi:
         except Exception as e:
             raise ValidationError(f"Invalid pipeline data: {e}") from e
             
-        item = model_to_item(pipeline)
+        item = pipeline.to_dynamodb_item()
         
         self.gateway.put_item(item)  # No condition - allows overwrite
         logger.info(f"Upserted pipeline: {pipeline.pipeline_id}")
@@ -504,7 +502,7 @@ class PipelineConfigWriteApi:
             
         # Validate item sizes before processing
         for pipeline in pipelines:
-            item = model_to_item(pipeline)
+            item = pipeline.to_dynamodb_item()
             item_size = self._calculate_item_size(item)
             if item_size > 400 * 1024:  # 400KB limit
                 raise ValidationError(
@@ -529,7 +527,7 @@ class PipelineConfigWriteApi:
         max_retries: int
     ) -> List[PipelineConfig]:
         """Write a single chunk with retry logic for UnprocessedItems."""
-        items_to_write = [model_to_item(pipeline) for pipeline in pipelines]
+        items_to_write = [pipeline.to_dynamodb_item() for pipeline in pipelines]
         pipeline_map = {item['pipeline_id']: pipeline for pipeline, item in zip(pipelines, items_to_write)}
         successful_pipelines = []
         

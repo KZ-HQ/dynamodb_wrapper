@@ -19,9 +19,9 @@ from boto3.dynamodb.conditions import Key, Attr
 from ...config import DynamoDBConfig
 from ...models import PipelineRunLog, RunStatus, PipelineRunLogView, PipelineRunLogSummaryView
 from ...utils import (
-    item_to_model, build_projection_expression, 
+    build_projection_expression, 
     to_user_timezone,
-    build_model_key, build_model_key_condition, build_gsi_key_condition
+    build_model_key, build_gsi_key_condition, build_key_condition
 )
 from ...core import create_table_gateway
 
@@ -144,7 +144,7 @@ class PipelineRunLogsReadApi:
         if 'Item' not in response:
             return None
             
-        return self._convert_to_user_timezone(item_to_model(response['Item'], PipelineRunLogView))
+        return self._convert_to_user_timezone(PipelineRunLogView.from_dynamodb_item(response['Item']))
 
     def query_by_pipeline(
         self,
@@ -210,7 +210,7 @@ class PipelineRunLogsReadApi:
             response = self.gateway.query(**query_kwargs)
             
             items = [
-                self._convert_to_user_timezone(item_to_model(item, PipelineRunLogView))
+                self._convert_to_user_timezone(PipelineRunLogView.from_dynamodb_item(item))
                 for item in response.get('Items', [])
             ]
             
@@ -285,7 +285,7 @@ class PipelineRunLogsReadApi:
             response = self.gateway.query(**query_kwargs)
             
             items = [
-                self._convert_to_user_timezone(item_to_model(item, PipelineRunLogView))
+                self._convert_to_user_timezone(PipelineRunLogView.from_dynamodb_item(item))
                 for item in response.get('Items', [])
             ]
             
@@ -448,7 +448,7 @@ class PipelineRunLogsReadApi:
         if 'Item' not in response:
             return None
             
-        return self._convert_to_user_timezone(item_to_model(response['Item'], PipelineRunLogSummaryView))
+        return self._convert_to_user_timezone(PipelineRunLogSummaryView.from_dynamodb_item(response['Item']))
 
     def scan_for_all_runs(
         self,
@@ -494,7 +494,7 @@ class PipelineRunLogsReadApi:
             response = self.gateway.scan(**scan_kwargs)
             
             items = [
-                self._convert_to_user_timezone(item_to_model(item, PipelineRunLogView))
+                self._convert_to_user_timezone(PipelineRunLogView.from_dynamodb_item(item))
                 for item in response.get('Items', [])
             ]
             
@@ -717,7 +717,7 @@ class PipelineRunLogsReadApi:
             response = self.gateway.query(**query_kwargs)
             
             items = [
-                self._convert_to_user_timezone(item_to_model(item, PipelineRunLogView))
+                self._convert_to_user_timezone(PipelineRunLogView.from_dynamodb_item(item))
                 for item in response.get('Items', [])
             ]
             

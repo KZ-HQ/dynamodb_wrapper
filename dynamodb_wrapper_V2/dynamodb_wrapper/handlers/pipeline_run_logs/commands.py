@@ -19,9 +19,9 @@ from typing import Dict, List, Optional, Any
 from boto3.dynamodb.conditions import Attr
 
 from ...config import DynamoDBConfig
-from ...exceptions import ItemNotFoundError, ValidationError, ConnectionError
+from ...exceptions import ValidationError
 from ...models import PipelineRunLog, RunStatus, PipelineRunLogUpsert, PipelineRunLogStatusUpdate
-from ...utils import model_to_item, to_utc, ensure_timezone_aware, build_model_key
+from ...utils import to_utc, ensure_timezone_aware, build_model_key
 from ...core import create_table_gateway
 
 logger = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class PipelineRunLogsWriteApi:
         run_log = self._ensure_utc_timestamps(run_log)
         
         # Convert to DynamoDB item
-        item = model_to_item(run_log)
+        item = run_log.to_dynamodb_item()
         
         # Default condition prevents accidental overwrites of composite primary key
         if condition_expression is None:
@@ -288,7 +288,7 @@ class PipelineRunLogsWriteApi:
                     
                     # Update duration in a separate operation
                     self.gateway.update_item(
-                        key={'run_id': run_id},
+                        key={'run_id': run_id, 'pipeline_id': pipeline_id},
                         update_expression="SET duration_seconds = :duration",
                         expression_attribute_values={':duration': Decimal(str(duration))},
                         return_values='NONE'
@@ -508,7 +508,7 @@ class PipelineRunLogsWriteApi:
             
         # Ensure all datetime fields are in UTC before storage
         run_log = self._ensure_utc_timestamps(run_log)
-        item = model_to_item(run_log)
+        item = run_log.to_dynamodb_item()
         
         self.gateway.put_item(item)  # No condition - allows overwrite
         logger.info(f"Upserted run log: {run_log.run_id}")
@@ -563,7 +563,7 @@ class PipelineRunLogsWriteApi:
             for run_log in validated_runs:
                 # Ensure all datetime fields are in UTC before storage
                 run_log = self._ensure_utc_timestamps(run_log)
-                item = model_to_item(run_log)
+                item = run_log.to_dynamodb_item()
                 batch.put_item(Item=item)
                 
         logger.info(f"Bulk upserted {len(validated_runs)} run logs")
@@ -607,6 +607,7 @@ class PipelineRunLogsWriteApi:
     def finish_pipeline_run(
         self,
         run_id: str,
+        pipeline_id: str,
         status: RunStatus,
         error_message: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -615,6 +616,7 @@ class PipelineRunLogsWriteApi:
         
         Args:
             run_id: Run identifier
+            pipeline_id: Pipeline identifier
             status: Terminal status (SUCCESS, FAILED, CANCELLED)
             error_message: Error message if failed
             
@@ -627,6 +629,7 @@ class PipelineRunLogsWriteApi:
         
         return self.update_run_status(
             run_id=run_id,
+            pipeline_id=pipeline_id,
             status=status,
             error_message=error_message,
             end_time=datetime.now(timezone.utc)
@@ -672,6 +675,7 @@ class PipelineRunLogsWriteApi:
             try:
                 self.update_run_status(
                     run_id=run.run_id,
+                    pipeline_id=pipeline_id,
                     status=RunStatus.CANCELLED,
                     error_message=f"Cancelled by {cancelled_by}" if cancelled_by else "Cancelled"
                 )
