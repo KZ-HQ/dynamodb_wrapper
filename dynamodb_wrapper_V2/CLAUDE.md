@@ -164,9 +164,7 @@ london_time = to_user_timezone(utc_time, "Europe/London")
 from dynamodb_wrapper.utils import (
     extract_model_metadata,
     build_model_key,
-    build_gsi_key_condition,
-    model_to_item,
-    item_to_model
+    build_gsi_key_condition
 )
 
 # When implementing new handlers, use these patterns:
@@ -179,12 +177,12 @@ def _build_query_key(model_class, **key_values):
 def _convert_for_storage(model_instance):
     """Convert model to DynamoDB item with boolean-to-string conversion."""
     # This handles boolean → 'true'/'false' for GSI compatibility
-    return model_to_item(model_instance)
+    return model_instance.to_dynamodb_item()
 
 def _convert_from_storage(item_dict, model_class):
     """Convert DynamoDB item back to model with string-to-boolean conversion."""
     # This handles 'true'/'false' → boolean for Python compatibility  
-    return item_to_model(item_dict, model_class)
+    return model_class.from_dynamodb_item(item_dict)
 ```
 
 ## 🎯 Rule of Thumb (Quick Decision Guide)

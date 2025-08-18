@@ -266,11 +266,11 @@ def build_model_key(model_class: Type[BaseModel], **key_values) -> Dict[str, Any
 def build_gsi_key_condition(model_class: Type[BaseModel], gsi_name: str, **key_values):
     # Build GSI queries from Meta class with automatic boolean conversion
 
-# DynamoDB Compatibility Functions
-def model_to_item(model: BaseModel) -> Dict[str, Any]:
+# DynamoDB Compatibility Functions (Canonical API via DynamoDBMixin)
+# model.to_dynamodb_item() -> Dict[str, Any]
     # Convert model to DynamoDB item with boolean-to-string conversion
     
-def item_to_model(item: Dict[str, Any], model_class: Type[BaseModel]) -> BaseModel:
+# ModelClass.from_dynamodb_item(item) -> BaseModel  
     # Convert DynamoDB item to model with string-to-boolean conversion
 
 # Timezone Management (Python 3.9+ Native)
@@ -443,7 +443,7 @@ The V2 codebase maintains **comprehensive test coverage** with **230 tests passi
 4. Follow DTO validation patterns for data integrity
 
 ### Extending DynamoDB Compatibility
-1. Add new data type conversions in `model_to_item()` and `item_to_model()`
+1. Add new data type conversions in `DynamoDBMixin.to_dynamodb_item()` and `DynamoDBMixin.from_dynamodb_item()`
 2. Extend boolean conversion logic for additional field types
 3. Add custom serialization for complex data structures
 4. Follow ISO datetime patterns for consistent storage

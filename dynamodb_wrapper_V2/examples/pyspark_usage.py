@@ -257,7 +257,7 @@ def demonstrate_model_driven_features(config):
     
     from dynamodb_wrapper.models.domain_models import PipelineConfig, PipelineRunLog
     from dynamodb_wrapper.utils import (
-        get_model_primary_key_fields,
+        get_model_key_fields,
         get_model_gsi_names,
         build_model_key,
         build_gsi_key_condition
@@ -265,8 +265,8 @@ def demonstrate_model_driven_features(config):
     
     # Show model metadata
     print("1. Model Metadata:")
-    print(f"   PipelineConfig keys: {get_model_primary_key_fields(PipelineConfig)}")
-    print(f"   PipelineRunLog keys: {get_model_primary_key_fields(PipelineRunLog)}")
+    print(f"   PipelineConfig keys: {get_model_key_fields(PipelineConfig)}")
+    print(f"   PipelineRunLog keys: {get_model_key_fields(PipelineRunLog)}")
     print(f"   PipelineConfig GSIs: {get_model_gsi_names(PipelineConfig)}")
     print(f"   PipelineRunLog GSIs: {get_model_gsi_names(PipelineRunLog)}")
     
