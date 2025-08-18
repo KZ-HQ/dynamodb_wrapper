@@ -88,27 +88,31 @@ class PipelineConfig(DateTimeMixin, BaseModel):
 ## Components
 
 - DateTimeMixin: Centralized datetime validation and serialization
-- AuditMixin: Common audit fields for tracking creation and modification
+- DynamoDBMixin: Canonical API for DynamoDB serialization/deserialization
 - Common field definitions and utilities
 """
 
+import logging
 from datetime import datetime
 from typing import Any, Dict
 
-from pydantic import BaseModel, field_serializer, field_validator
+from pydantic import BaseModel, field_validator
+
+logger = logging.getLogger(__name__)
 
 
 class DateTimeMixin(BaseModel):
     """
-    Mixin providing consistent datetime validation and serialization.
+    Mixin providing consistent datetime validation and JSON serialization.
     
-    This mixin eliminates duplicated datetime handling logic across domain models
-    by providing centralized validation and serialization for all datetime fields.
+    This mixin handles all datetime-related functionality including validation,
+    timezone handling, and JSON serialization. It ensures consistent datetime
+    handling across all models that inherit from it.
     
     Features:
     - Automatic timezone-aware datetime validation
     - ISO string parsing with timezone handling
-    - Consistent serialization to ISO format
+    - Consistent datetime serialization for JSON APIs
     - Error handling with descriptive messages
     """
     
@@ -131,7 +135,6 @@ class DateTimeMixin(BaseModel):
         Raises:
             ValueError: If datetime format is invalid or type is unsupported
         """
-        import types
         from typing import get_origin, get_args
         
         # Only process datetime fields - leave other fields unchanged
@@ -169,40 +172,122 @@ class DateTimeMixin(BaseModel):
         # Unsupported type for datetime field
         raise ValueError(f"Invalid datetime type: {type(v)}. Expected datetime object or ISO string.")
     
-    @field_serializer('*', when_used='json')
-    def serialize_datetime_fields(self, value: Any, info) -> Any:
+
+
+class DynamoDBMixin(BaseModel):
+    """
+    Mixin providing DynamoDB serialization and deserialization functionality.
+    
+    This mixin handles the conversion between Python models and DynamoDB items,
+    including all DynamoDB-specific type conversions like boolean-to-string
+    for GSI compatibility and proper Decimal handling.
+    
+    Features:
+    - Complete DynamoDB item serialization (to_dynamodb_item)
+    - Complete DynamoDB item deserialization (from_dynamodb_item)
+    - Boolean ↔ 'true'/'false' string conversion for GSI compatibility
+    - Decimal preservation for DynamoDB Number types
+    - Recursive nested structure handling
+    - Consistent datetime conversion (delegates to DateTimeMixin)
+    """
+
+    def to_dynamodb_item(self) -> Dict[str, Any]:
         """
-        Serialize datetime fields to ISO format for JSON output.
+        Convert model to DynamoDB-compatible item.
         
-        This serializer applies to all fields but only processes datetime objects,
-        leaving other field types unchanged.
+        Handles all DynamoDB-specific type conversions while preserving
+        the recursive structure of nested dictionaries and lists.
+        
+        DynamoDB Requirements:
+        - datetime → ISO string (consistent with DateTimeMixin JSON serialization)
+        - bool → 'true'/'false' string (for GSI compatibility)
+        - Decimal → preserved as Decimal (boto3 handles DynamoDB Number type)
+        - Other types → unchanged
+        
+        Returns:
+            DynamoDB-compatible dictionary ready for storage
+            
+        Example:
+            item = pipeline.to_dynamodb_item()
+            gateway.put_item(item)
+        """
+        from decimal import Decimal
+        
+        # Start with regular model dump (preserves Decimals, excludes None values)
+        dumped_item = self.model_dump(exclude_none=True)
+        
+        def convert_for_dynamodb(obj):
+            """Recursively convert Python objects to DynamoDB-compatible types."""
+            if isinstance(obj, dict):
+                return {k: convert_for_dynamodb(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_for_dynamodb(list_item) for list_item in obj]
+            elif isinstance(obj, datetime):
+                # Use same ISO format as JSON serializer for consistency
+                return obj.isoformat()
+            elif isinstance(obj, bool):
+                # Convert to string for DynamoDB GSI compatibility
+                return str(obj).lower()
+            elif isinstance(obj, Decimal):
+                # Keep as Decimal (boto3 handles DynamoDB Number type conversion)
+                return obj
+            else:
+                # All other types pass through unchanged
+                return obj
+        
+        return convert_for_dynamodb(dumped_item)
+
+    @classmethod
+    def from_dynamodb_item(cls, item: Dict[str, Any]):
+        """
+        Create model instance from DynamoDB item.
+        
+        Handles all DynamoDB-specific type conversions before creating the model instance.
+        This provides the reverse operation of to_dynamodb_item() and ensures clean
+        deserialization from DynamoDB storage format to Python model.
+        
+        DynamoDB Conversions:
+        - 'true'/'false' strings → boolean (GSI compatibility reversal)
+        - ISO datetime strings → datetime objects (via DateTimeMixin validation)
+        - Decimal objects → preserved (DynamoDB Number type handling)
+        - Other types → unchanged
         
         Args:
-            value: Field value to serialize
-            info: Field information from Pydantic
+            item: DynamoDB item dictionary with DynamoDB-specific types
             
         Returns:
-            ISO format string for datetime fields, original value for others
+            Model instance with properly converted Python types
+            
+        Example:
+            pipeline = PipelineConfig.from_dynamodb_item(dynamodb_item)
+            
+        Raises:
+            ValidationError: If item data is invalid for the model
         """
-        if isinstance(value, datetime):
-            return value.isoformat()
-        return value
-
-
-class AuditMixin(BaseModel):
-    """
-    Mixin providing common audit fields for tracking creation and modification.
-    
-    Includes standard fields for tracking who created/updated records and when,
-    with consistent validation and serialization through DateTimeMixin.
-    """
-    
-    created_at: datetime = None  # Will be set by field default_factory
-    updated_at: datetime = None  # Will be set by field default_factory
-    created_by: str = None
-    updated_by: str = None
-
-
-# Common field definitions that can be reused
-COMMON_TAG_FIELD = Dict[str, str]
-COMMON_CONFIG_FIELD = Dict[str, Any]
+        try:
+            def convert_dynamodb_types(obj):
+                """Recursively convert DynamoDB types to Python types."""
+                if isinstance(obj, dict):
+                    return {k: convert_dynamodb_types(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [convert_dynamodb_types(list_item) for list_item in obj]
+                elif isinstance(obj, str):
+                    # Convert string booleans back to booleans (reverses GSI compatibility)
+                    if obj.lower() in ('true', 'false'):
+                        return obj.lower() == 'true'
+                    # Leave ISO datetime strings as strings - DateTimeMixin validator will handle them
+                    return obj
+                else:
+                    # All other types (including Decimal) pass through unchanged
+                    return obj
+            
+            # Convert DynamoDB types to Python types
+            converted_item = convert_dynamodb_types(item)
+            
+            # Create model instance (DateTimeMixin validator handles datetime conversion)
+            return cls(**converted_item)
+            
+        except Exception as e:
+            logger.error(f"Failed to convert DynamoDB item to {cls.__name__}: {e}")
+            from ..exceptions import ValidationError
+            raise ValidationError(f"Failed to convert DynamoDB item to {cls.__name__}: {e}") from e

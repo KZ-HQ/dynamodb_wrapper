@@ -5,7 +5,6 @@ This single module contains all utility functions needed by the DynamoDB wrapper
 eliminating the complexity of multiple files and providing a clean, unified interface.
 
 Key Features:
-- Data serialization/deserialization (UTC-only for gateway layer)
 - Query building (projections, filters, key conditions)
 - Timezone management (conversion utilities)
 - Model-agnostic key building using Pydantic introspection
@@ -17,14 +16,11 @@ Architecture Compliance:
 """
 
 import logging
-import os
-import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
 from pydantic import BaseModel
 
-from .exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +33,7 @@ logger = logging.getLogger(__name__)
 from zoneinfo import ZoneInfo
 
 
-def to_utc(dt: datetime) -> datetime:
+def to_utc(dt: Optional[datetime]) -> Optional[datetime]:
     """Convert datetime to UTC.
     
     Handles both timezone-aware and naive datetimes. Naive datetimes are assumed
@@ -69,7 +65,7 @@ def to_utc(dt: datetime) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-def ensure_timezone_aware(dt: datetime, assumed_tz: Optional[str] = "UTC") -> datetime:
+def ensure_timezone_aware(dt: Optional[datetime], assumed_tz: Optional[str] = "UTC") -> Optional[datetime]:
     """Ensure datetime has timezone information.
     
     If the datetime is naive, adds the specified timezone. If already timezone-aware,
@@ -103,7 +99,7 @@ def ensure_timezone_aware(dt: datetime, assumed_tz: Optional[str] = "UTC") -> da
         return dt.replace(tzinfo=ZoneInfo(assumed_tz))
 
 
-def to_user_timezone(dt: datetime, user_tz: Optional[str] = None) -> datetime:
+def to_user_timezone(dt: Optional[datetime], user_tz: Optional[str] = None) -> Optional[datetime]:
     """Convert UTC datetime to user's timezone for display.
     
     Args:
@@ -123,87 +119,6 @@ def to_user_timezone(dt: datetime, user_tz: Optional[str] = None) -> datetime:
     # Convert to user timezone
     user_zone = ZoneInfo(user_tz)
     return dt.astimezone(user_zone)
-
-
-# =============================================================================
-# Data Serialization (Gateway Layer - UTC Only)
-# =============================================================================
-
-def item_to_model(item: Dict[str, Any], model_class: Type[BaseModel]) -> BaseModel:
-    """Convert DynamoDB item to Pydantic model (UTC-only gateway utility).
-    
-    This utility only handles UTC datetime deserialization from DynamoDB items.
-    Timezone conversion should be handled at the handler layer, not in gateway utilities.
-    
-    Args:
-        item: DynamoDB item dictionary
-        model_class: Target Pydantic model class
-        
-    Returns:
-        Pydantic model instance with UTC datetimes
-        
-    Raises:
-        ValidationError: If conversion fails
-    """
-    try:
-        # Convert ISO string datetime back to UTC datetime objects and string booleans back to booleans
-        def convert_datetime_strings(obj):
-            if isinstance(obj, dict):
-                return {k: convert_datetime_strings(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_datetime_strings(item) for item in obj]
-            elif isinstance(obj, str):
-                # Try to parse as datetime first (assume UTC from DynamoDB)
-                if 'T' in obj and obj.count('-') >= 2:
-                    try:
-                        dt = datetime.fromisoformat(obj.replace('Z', '+00:00'))
-                        return dt
-                    except ValueError:
-                        pass
-                # Try to parse as boolean
-                if obj.lower() in ('true', 'false'):
-                    return obj.lower() == 'true'
-                return obj
-            else:
-                return obj
-
-        converted_item = convert_datetime_strings(item)
-        return model_class(**converted_item)
-    except Exception as e:
-        logger.error(f"Failed to convert item to model: {e}")
-        raise ValidationError(f"Failed to convert item to model: {e}") from e
-
-
-def model_to_item(model: BaseModel) -> Dict[str, Any]:
-    """Convert Pydantic model to DynamoDB item (UTC-only gateway utility).
-    
-    This utility only handles UTC datetime serialization for DynamoDB storage.
-    All datetime objects should already be in UTC when reaching the gateway layer.
-    
-    Args:
-        model: Pydantic model instance with UTC datetimes
-        
-    Returns:
-        DynamoDB item dictionary with ISO datetime strings
-    """
-    item = model.model_dump(exclude_none=True)
-
-    # Convert datetime objects to ISO strings and booleans to strings for DynamoDB storage
-    def convert_datetime(obj):
-        if isinstance(obj, dict):
-            return {k: convert_datetime(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [convert_datetime(item) for item in obj]
-        elif isinstance(obj, datetime):
-            # Store as ISO string (datetime should already be UTC)
-            return obj.isoformat()
-        elif isinstance(obj, bool):
-            # Convert booleans to strings for DynamoDB GSI compatibility
-            return str(obj).lower()
-        else:
-            return obj
-
-    return convert_datetime(item)
 
 
 # =============================================================================
@@ -270,11 +185,15 @@ def build_filter_expression(filters: Dict[str, Any]):
         conditions.append(Attr(attr_name).eq(value))
     
     # Combine conditions with AND
-    filter_expr = conditions[0]
-    for condition in conditions[1:]:
-        filter_expr = filter_expr & condition
-        
-    return filter_expr
+    if len(conditions) == 0:
+        return None
+    elif len(conditions) == 1:
+        return conditions[0]
+    else:
+        filter_expr = conditions[0]
+        for condition in conditions[1:]:
+            filter_expr = filter_expr & condition
+        return filter_expr
 
 
 def build_key_condition(
@@ -371,9 +290,9 @@ def extract_model_metadata(model_class: Type[BaseModel]) -> Dict[str, Any]:
         ValueError: If model doesn't have required Meta class attributes
         
     Example:
-        >>> metadata = extract_model_metadata(PipelineConfig)
+        >>> metadata = extract_model_metadata(SomeModelClass)
         >>> metadata['partition_key']
-        'pipeline_id'
+        'entity_id'
     """
     if not hasattr(model_class, 'Meta'):
         raise ValueError(f"Model {model_class.__name__} must have a Meta class with partition_key, sort_key, and gsis attributes")
@@ -391,7 +310,7 @@ def extract_model_metadata(model_class: Type[BaseModel]) -> Dict[str, Any]:
     return {
         'partition_key': partition_key,
         'sort_key': sort_key,
-        'primary_key_fields': [k for k in [partition_key, sort_key] if k],
+        'key_fields': [k for k in [partition_key, sort_key] if k],
         'available_fields': list(model_class.model_fields.keys()),
         'gsis': gsis
     }
@@ -415,11 +334,11 @@ def build_model_key(model_class: Type[BaseModel], **key_values: Any) -> Dict[str
         DynamoDB key dictionary
         
     Examples:
-        >>> build_model_key(PipelineConfig, pipeline_id="pipeline-123")
-        {'pipeline_id': 'pipeline-123'}
+        >>> build_model_key(SimpleModel, entity_id="entity-123")
+        {'entity_id': 'entity-123'}
         
-        >>> build_model_key(PipelineRunLog, run_id="run-456", pipeline_id="pipeline-123")
-        {'run_id': 'run-456', 'pipeline_id': 'pipeline-123'}
+        >>> build_model_key(CompositeModel, primary_id="primary-456", sort_id="sort-123")
+        {'primary_id': 'primary-456', 'sort_id': 'sort-123'}
         
     Raises:
         ValueError: If model lacks Meta class, or required key fields are missing
@@ -466,10 +385,10 @@ def build_model_key_condition(
         KeyConditionExpression for boto3
         
     Examples:
-        >>> build_model_key_condition(PipelineConfig, pipeline_id="pipeline-123")
+        >>> build_model_key_condition(SimpleModel, entity_id="entity-123")
         
-        >>> build_model_key_condition(PipelineRunLog, sort_condition="between", 
-        ...                           run_id="run-456", pipeline_id="pipeline-123")
+        >>> build_model_key_condition(CompositeModel, sort_condition="between", 
+        ...                           primary_id="primary-456", sort_id="sort-123")
         
     Raises:
         ValueError: If model lacks Meta class, required key fields missing, or invalid sort_condition
@@ -561,24 +480,30 @@ def build_gsi_key_condition(
 # Convenience Functions for Common Operations
 # =============================================================================
 
-def get_model_primary_key_fields(model_class: Type[BaseModel]) -> List[str]:
-    """Get primary key field names from domain model Meta class.
+def get_model_key_fields(model_class: Type[BaseModel]) -> List[str]:
+    """Get DynamoDB item key field names from domain model Meta class.
+    
+    Returns the list of fields that form the DynamoDB item key:
+    - For simple keys: [partition_key]
+    - For composite keys: [partition_key, sort_key]
     
     Args:
         model_class: Pydantic BaseModel class with Meta class
         
     Returns:
-        List of primary key field names
+        List of DynamoDB item key field names (partition_key + sort_key if present)
         
     Examples:
-        >>> get_model_primary_key_fields(PipelineConfig)
+        >>> get_model_key_fields(PipelineConfig)  # Simple key
         ['pipeline_id']
+        >>> get_model_key_fields(PipelineRunLog)  # Composite key  
+        ['run_id', 'pipeline_id']
         
     Raises:
         ValueError: If model lacks required Meta class
     """
     metadata = extract_model_metadata(model_class)
-    return metadata['primary_key_fields']
+    return metadata['key_fields']
 
 
 def get_model_gsi_names(model_class: Type[BaseModel]) -> List[str]:
@@ -598,46 +523,6 @@ def get_model_gsi_names(model_class: Type[BaseModel]) -> List[str]:
 
 
 # =============================================================================
-# Handler Layer Timezone Utilities (Simplified)
-# =============================================================================
-
-def ensure_utc_for_storage(dt: datetime, default_timezone: str = "UTC") -> datetime:
-    """Ensure datetime is in UTC for DynamoDB storage.
-    
-    Converts any datetime to UTC. Naive datetimes are assumed to be in the
-    specified timezone (defaults to UTC for library consistency).
-    
-    Args:
-        dt: Datetime to convert to UTC
-        default_timezone: Timezone to assume for naive datetimes (should be "UTC" for internal ops)
-        
-    Returns:
-        UTC datetime ready for storage
-        
-    Note:
-        For internal library operations, this should always use default_timezone="UTC"
-        to maintain data consistency. The parameter exists for edge cases only.
-        
-    Example:
-        >>> dt = datetime(2024, 1, 1, 10, 0)  # naive datetime
-        >>> ensure_utc_for_storage(dt)  # -> UTC datetime (recommended)
-        >>> ensure_utc_for_storage(dt, "UTC")  # -> Same as above (explicit)
-    """
-    if dt is None:
-        return None
-        
-    # Make timezone-aware if needed (using UTC for consistency), then convert to UTC
-    dt = ensure_timezone_aware(dt, default_timezone)
-    return to_utc(dt)
-
-
-# =============================================================================
-# Note: DynamoDBKey class removed as it was unused in V2 codebase
-# The V2 architecture uses direct function calls like build_model_key() instead
-# =============================================================================
-
-
-# =============================================================================
 # Export All Functions
 # =============================================================================
 
@@ -646,11 +531,6 @@ __all__ = [
     "to_utc",
     "ensure_timezone_aware", 
     "to_user_timezone",
-    "ensure_utc_for_storage",
-    
-    # Data Layer (Gateway)
-    "item_to_model",
-    "model_to_item",
     
     # Query Building
     "build_projection_expression",
@@ -662,6 +542,6 @@ __all__ = [
     "build_model_key",
     "build_model_key_condition",
     "build_gsi_key_condition",
-    "get_model_primary_key_fields",
+    "get_model_key_fields",
     "get_model_gsi_names",
 ]

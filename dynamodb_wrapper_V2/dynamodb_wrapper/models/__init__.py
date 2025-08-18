@@ -1,7 +1,7 @@
 # Base mixins and utilities
 from .base import (
     DateTimeMixin,
-    AuditMixin,
+    DynamoDBMixin,
 )
 
 # Core domain models (consolidated from 3 separate files)
@@ -41,7 +41,7 @@ from .dtos import (
 __all__ = [
     # Base mixins and utilities
     "DateTimeMixin",
-    "AuditMixin",
+    "DynamoDBMixin",
     
     # Original models
     "PipelineConfig",
