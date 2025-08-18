@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from typing import Optional, Union
 from unittest.mock import patch
 
-from dynamodb_wrapper.utils import model_to_item, item_to_model
 from dynamodb_wrapper.models.domain_models import PipelineConfig, PipelineRunLog, TableConfig
 from dynamodb_wrapper.exceptions import ValidationError
 from pydantic import BaseModel, Field, ValidationError as PydanticValidationError
@@ -44,8 +43,8 @@ class TestDecimalPrecisionHandling:
             )
             
             # Convert to DynamoDB item and back
-            item = model_to_item(pipeline)
-            restored = item_to_model(item, PipelineConfig)
+            item = pipeline.to_dynamodb_item()
+            restored = PipelineConfig.from_dynamodb_item(item)
             
             # Should preserve exact decimal value
             assert isinstance(restored.memory_gb, Decimal)
@@ -62,7 +61,7 @@ class TestDecimalPrecisionHandling:
             memory_gb=Decimal("15.123456789")
         )
         
-        item = model_to_item(pipeline)
+        item = pipeline.to_dynamodb_item()
         
         # In DynamoDB, decimal should remain as Decimal (boto3 handles this)
         assert isinstance(item['memory_gb'], Decimal)
@@ -89,8 +88,8 @@ class TestDecimalPrecisionHandling:
                 )
                 
                 # Should handle conversion properly
-                item = model_to_item(pipeline)
-                restored = item_to_model(item, PipelineConfig)
+                item = pipeline.to_dynamodb_item()
+                restored = PipelineConfig.from_dynamodb_item(item)
                 
                 if test_decimal.is_finite():
                     assert restored.memory_gb == test_decimal
@@ -119,7 +118,7 @@ class TestDecimalPrecisionHandling:
         }
         
         # Should convert string to Decimal properly
-        restored = item_to_model(item, PipelineConfig)
+        restored = PipelineConfig.from_dynamodb_item(item)
         assert isinstance(restored.memory_gb, (Decimal, float))
         assert float(restored.memory_gb) == 15.123456789
 
@@ -133,12 +132,12 @@ class TestDecimalPrecisionHandling:
             memory_gb=None  # None value for optional field
         )
         
-        item = model_to_item(pipeline)
+        item = pipeline.to_dynamodb_item()
         
         # None values should not appear in DynamoDB item
         assert 'memory_gb' not in item
         
-        restored = item_to_model(item, PipelineConfig)
+        restored = PipelineConfig.from_dynamodb_item(item)
         assert restored.memory_gb is None
 
 
@@ -165,8 +164,8 @@ class TestOptionalAndUnionTypeHandling:
                     description=test_value  # Optional[str] field
                 )
                 
-                item = model_to_item(pipeline)
-                restored = item_to_model(item, PipelineConfig)
+                item = pipeline.to_dynamodb_item()
+                restored = PipelineConfig.from_dynamodb_item(item)
                 
                 if test_value is None:
                     assert 'description' not in item
@@ -199,8 +198,8 @@ class TestOptionalAndUnionTypeHandling:
                 cpu_cores=test_value  # Optional[int] field
             )
             
-            item = model_to_item(pipeline)
-            restored = item_to_model(item, PipelineConfig)
+            item = pipeline.to_dynamodb_item()
+            restored = PipelineConfig.from_dynamodb_item(item)
             
             if test_value is None:
                 assert 'cpu_cores' not in item
@@ -238,8 +237,8 @@ class TestOptionalAndUnionTypeHandling:
                 spark_config=test_config  # Dict field with default_factory
             )
             
-            item = model_to_item(pipeline)
-            restored = item_to_model(item, PipelineConfig)
+            item = pipeline.to_dynamodb_item()
+            restored = PipelineConfig.from_dynamodb_item(item)
             
             if test_config == {}:
                 # Empty dict may or may not be in the item depending on serialization
@@ -288,8 +287,8 @@ class TestOptionalAndUnionTypeHandling:
                 partition_columns=test_list  # List[str] field with default_factory
             )
             
-            item = model_to_item(table)
-            restored = item_to_model(item, TableConfig)
+            item = table.to_dynamodb_item()
+            restored = TableConfig.from_dynamodb_item(item)
             
             if test_list == []:
                 # Empty list may or may not be in the item depending on serialization
@@ -315,8 +314,8 @@ class TestOptionalAndUnionTypeHandling:
                 start_time=test_time
             )
             
-            item = model_to_item(log)
-            restored = item_to_model(item, PipelineRunLog)
+            item = log.to_dynamodb_item()
+            restored = PipelineRunLog.from_dynamodb_item(item)
             
             # Datetime should be preserved or converted consistently
             assert isinstance(restored.start_time, datetime)
@@ -354,10 +353,292 @@ class TestNestedModelSerialization:
             spark_config=complex_config
         )
         
-        item = model_to_item(pipeline)
-        restored = item_to_model(item, PipelineConfig)
+        item = pipeline.to_dynamodb_item()
+        restored = PipelineConfig.from_dynamodb_item(item)
         
         assert restored.spark_config == complex_config
+
+    def test_deeply_nested_boolean_conversion(self):
+        """Test that boolean conversion works recursively in deeply nested structures."""
+        # Simulate a DynamoDB item with deeply nested boolean strings
+        # This tests the recursive conversion in item_to_model after our recent changes
+        dynamodb_item = {
+            'pipeline_id': 'deep-nested-test',
+            'pipeline_name': 'Deep Nested Boolean Test',
+            'source_type': 's3',
+            'destination_type': 'warehouse',
+            'spark_config': {
+                'level1': {
+                    'feature_enabled': 'true',  # Boolean as string (DynamoDB format)
+                    'level2': {
+                        'nested_feature': 'false',  # Boolean as string (DynamoDB format)
+                        'level3': {
+                            'deep_feature': 'true',  # Boolean as string (DynamoDB format)
+                            'settings': {
+                                'auto_optimize': 'false',  # Boolean as string (DynamoDB format)
+                                'list_with_booleans': [
+                                    {'enabled': 'true'},   # Boolean in list item
+                                    {'enabled': 'false'},  # Boolean in list item
+                                    {'name': 'test', 'active': 'true'}  # Mixed types
+                                ]
+                            }
+                        }
+                    }
+                },
+                'top_level_boolean': 'true',  # Boolean as string (DynamoDB format)
+                'regular_string': 'not_a_boolean',  # Should remain as string
+                'datetime_string': '2024-01-01T10:00:00Z'  # Should remain as string for DateTimeMixin
+            },
+            'is_active': 'true',  # Top-level boolean as string
+            'environment': 'dev',
+            'version': '1.0.0',
+            'created_at': '2024-01-01T10:00:00+00:00',
+            'updated_at': '2024-01-01T10:00:00+00:00'
+        }
+        
+        # Convert DynamoDB item back to model
+        restored = PipelineConfig.from_dynamodb_item(dynamodb_item)
+        
+        # Verify all boolean strings were converted to actual booleans recursively
+        config = restored.spark_config
+        
+        # Level 1 conversions
+        assert config['level1']['feature_enabled'] is True
+        assert config['top_level_boolean'] is True
+        
+        # Level 2 conversions  
+        assert config['level1']['level2']['nested_feature'] is False
+        
+        # Level 3 conversions
+        assert config['level1']['level2']['level3']['deep_feature'] is True
+        assert config['level1']['level2']['level3']['settings']['auto_optimize'] is False
+        
+        # Conversions in lists within nested dictionaries
+        list_items = config['level1']['level2']['level3']['settings']['list_with_booleans']
+        assert list_items[0]['enabled'] is True
+        assert list_items[1]['enabled'] is False
+        assert list_items[2]['active'] is True
+        assert list_items[2]['name'] == 'test'  # Non-boolean should remain string
+        
+        # Top-level boolean conversion
+        assert restored.is_active is True
+        
+        # Non-boolean strings should remain as strings
+        assert config['regular_string'] == 'not_a_boolean'
+        assert config['datetime_string'] == '2024-01-01T10:00:00Z'  # DateTimeMixin handles this
+        
+        # Verify datetime fields were handled by DateTimeMixin (not item_to_model)
+        assert isinstance(restored.created_at, datetime)
+        assert isinstance(restored.updated_at, datetime)
+
+    def test_model_to_dynamodb_item_method(self):
+        """Test the new to_dynamodb_item() method on models."""
+        from decimal import Decimal
+        from datetime import datetime, timezone
+        
+        # Create a pipeline with various data types
+        pipeline = PipelineConfig(
+            pipeline_id="test-to-dynamodb",
+            pipeline_name="Test to_dynamodb_item Method",
+            source_type="s3",
+            destination_type="warehouse",
+            created_at=datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            memory_gb=Decimal("15.123456789"),
+            is_active=True,
+            spark_config={
+                'nested_bool': False,
+                'nested_dict': {
+                    'deep_bool': True,
+                    'deep_list': [
+                        {'list_bool': False},
+                        {'mixed': 'string', 'another_bool': True}
+                    ]
+                }
+            }
+        )
+        
+        # Test the new to_dynamodb_item() method
+        dynamodb_item = pipeline.to_dynamodb_item()
+        
+        # Verify datetime conversion
+        assert isinstance(dynamodb_item['created_at'], str)
+        assert dynamodb_item['created_at'] == '2024-01-01T10:00:00+00:00'
+        
+        # Verify Decimal preservation
+        assert isinstance(dynamodb_item['memory_gb'], Decimal)
+        assert dynamodb_item['memory_gb'] == Decimal("15.123456789")
+        
+        # Verify boolean to string conversion
+        assert isinstance(dynamodb_item['is_active'], str)
+        assert dynamodb_item['is_active'] == 'true'
+        
+        # Verify nested boolean conversions
+        assert dynamodb_item['spark_config']['nested_bool'] == 'false'
+        assert dynamodb_item['spark_config']['nested_dict']['deep_bool'] == 'true'
+        assert dynamodb_item['spark_config']['nested_dict']['deep_list'][0]['list_bool'] == 'false'
+        assert dynamodb_item['spark_config']['nested_dict']['deep_list'][1]['another_bool'] == 'true'
+        
+        # Verify non-boolean strings remain unchanged
+        assert dynamodb_item['spark_config']['nested_dict']['deep_list'][1]['mixed'] == 'string'
+        
+        # The canonical API is now the direct method call
+        # No need to test deprecated utility function
+
+    def test_canonical_api_usage(self):
+        """Test the canonical API - single way to serialize/deserialize."""
+        from decimal import Decimal
+        from datetime import datetime, timezone
+        
+        # Create test pipeline
+        original = PipelineConfig(
+            pipeline_id="test-canonical-api",
+            pipeline_name="Test Canonical API",
+            source_type="s3",
+            destination_type="warehouse",
+            created_at=datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            memory_gb=Decimal("15.5"),
+            is_active=True,
+            spark_config={
+                'nested_bool': False,
+                'deep_config': {
+                    'another_bool': True,
+                    'value': 42
+                }
+            }
+        )
+        
+        # CANONICAL SERIALIZATION: pipeline.to_dynamodb_item()
+        dynamo_item = original.to_dynamodb_item()
+        
+        # Verify serialization worked correctly
+        assert dynamo_item['pipeline_id'] == "test-canonical-api"
+        assert dynamo_item['created_at'] == "2024-01-01T10:00:00+00:00"
+        assert dynamo_item['is_active'] == "true"  # Boolean converted to string
+        assert dynamo_item['memory_gb'] == Decimal("15.5")  # Decimal preserved
+        assert dynamo_item['spark_config']['nested_bool'] == "false"
+        assert dynamo_item['spark_config']['deep_config']['another_bool'] == "true"
+        
+        # CANONICAL DESERIALIZATION: PipelineConfig.from_dynamodb_item()
+        restored = PipelineConfig.from_dynamodb_item(dynamo_item)
+        
+        # Verify deserialization worked correctly
+        assert restored.pipeline_id == original.pipeline_id
+        assert restored.created_at == original.created_at
+        assert restored.is_active == original.is_active
+        assert restored.memory_gb == original.memory_gb
+        assert restored.spark_config == original.spark_config
+        
+        # Verify type conversions
+        assert isinstance(restored.created_at, datetime)
+        assert isinstance(restored.is_active, bool)
+        assert isinstance(restored.memory_gb, Decimal)
+        assert isinstance(restored.spark_config['nested_bool'], bool)
+        assert isinstance(restored.spark_config['deep_config']['another_bool'], bool)
+        
+        # Perfect roundtrip
+        assert restored.pipeline_id == original.pipeline_id
+        assert restored.pipeline_name == original.pipeline_name
+        assert restored.spark_config == original.spark_config
+
+    def test_model_from_dynamodb_item_method(self):
+        """Test the new from_dynamodb_item() class method on models."""
+        from decimal import Decimal
+        from datetime import datetime, timezone
+        
+        # Simulate a DynamoDB item with DynamoDB-specific types
+        dynamodb_item = {
+            'pipeline_id': 'test-from-dynamodb',
+            'pipeline_name': 'Test from_dynamodb_item Method',
+            'source_type': 's3',
+            'destination_type': 'warehouse',
+            'created_at': '2024-01-01T10:00:00+00:00',  # ISO string from DynamoDB
+            'memory_gb': Decimal("15.123456789"),  # Decimal from DynamoDB
+            'is_active': 'true',  # String boolean from DynamoDB GSI
+            'spark_config': {
+                'nested_bool': 'false',  # String boolean
+                'nested_dict': {
+                    'deep_bool': 'true',  # String boolean
+                    'deep_list': [
+                        {'list_bool': 'false'},  # String boolean in list
+                        {'mixed': 'string', 'another_bool': 'true'}  # Mixed types
+                    ]
+                }
+            },
+            'environment': 'dev',
+            'version': '1.0.0'
+        }
+        
+        # Test the new from_dynamodb_item() class method
+        pipeline = PipelineConfig.from_dynamodb_item(dynamodb_item)
+        
+        # Verify datetime conversion (ISO string → datetime object)
+        assert isinstance(pipeline.created_at, datetime)
+        assert pipeline.created_at == datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+        
+        # Verify Decimal preservation
+        assert isinstance(pipeline.memory_gb, Decimal)
+        assert pipeline.memory_gb == Decimal("15.123456789")
+        
+        # Verify boolean string to boolean conversion
+        assert isinstance(pipeline.is_active, bool)
+        assert pipeline.is_active is True
+        
+        # Verify nested boolean string conversions
+        assert pipeline.spark_config['nested_bool'] is False
+        assert pipeline.spark_config['nested_dict']['deep_bool'] is True
+        assert pipeline.spark_config['nested_dict']['deep_list'][0]['list_bool'] is False
+        assert pipeline.spark_config['nested_dict']['deep_list'][1]['another_bool'] is True
+        
+        # Verify non-boolean strings remain unchanged
+        assert pipeline.spark_config['nested_dict']['deep_list'][1]['mixed'] == 'string'
+        
+        # The canonical API is now the direct class method call
+        # No need to test deprecated utility function
+
+    def test_serialization_deserialization_roundtrip(self):
+        """Test complete roundtrip: model → DynamoDB item → model."""
+        from decimal import Decimal
+        from datetime import datetime, timezone
+        
+        # Create original model
+        original = PipelineConfig(
+            pipeline_id="roundtrip-test",
+            pipeline_name="Roundtrip Test",
+            source_type="s3",
+            destination_type="warehouse",
+            created_at=datetime(2024, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+            memory_gb=Decimal("15.123456789"),
+            is_active=True,
+            spark_config={
+                'nested_bool': False,
+                'regular_string': 'should_remain_unchanged',
+                'nested_dict': {
+                    'deep_bool': True,
+                    'number': 42
+                }
+            }
+        )
+        
+        # Serialize to DynamoDB item
+        dynamodb_item = original.to_dynamodb_item()
+        
+        # Deserialize back to model
+        restored = PipelineConfig.from_dynamodb_item(dynamodb_item)
+        
+        # Verify roundtrip preservation
+        assert restored.pipeline_id == original.pipeline_id
+        assert restored.pipeline_name == original.pipeline_name
+        assert restored.created_at == original.created_at
+        assert restored.memory_gb == original.memory_gb
+        assert restored.is_active == original.is_active
+        assert restored.spark_config == original.spark_config
+        
+        # Verify specific type preservation
+        assert isinstance(restored.created_at, datetime)
+        assert isinstance(restored.memory_gb, Decimal)
+        assert isinstance(restored.is_active, bool)
+        assert isinstance(restored.spark_config['nested_bool'], bool)
+        assert isinstance(restored.spark_config['nested_dict']['deep_bool'], bool)
 
     def test_list_of_dicts_serialization(self):
         """Test serialization of lists containing dictionaries."""
@@ -383,8 +664,8 @@ class TestNestedModelSerialization:
             schema_definition=schema_definition
         )
         
-        item = model_to_item(table)
-        restored = item_to_model(item, TableConfig)
+        item = table.to_dynamodb_item()
+        restored = TableConfig.from_dynamodb_item(item)
         
         assert restored.schema_definition == schema_definition
 
@@ -405,8 +686,8 @@ class TestEdgeCaseValidation:
             description=long_description
         )
         
-        item = model_to_item(pipeline)
-        restored = item_to_model(item, PipelineConfig)
+        item = pipeline.to_dynamodb_item()
+        restored = PipelineConfig.from_dynamodb_item(item)
         
         assert restored.description == long_description
         assert len(restored.description) == 10000
@@ -430,8 +711,8 @@ class TestEdgeCaseValidation:
                 destination_type="warehouse"
             )
             
-            item = model_to_item(pipeline)
-            restored = item_to_model(item, PipelineConfig)
+            item = pipeline.to_dynamodb_item()
+            restored = PipelineConfig.from_dynamodb_item(item)
             
             assert restored.pipeline_name == test_string
 
@@ -456,8 +737,8 @@ class TestEdgeCaseValidation:
                     cpu_cores=test_value
                 )
                 
-                item = model_to_item(pipeline)
-                restored = item_to_model(item, PipelineConfig)
+                item = pipeline.to_dynamodb_item()
+                restored = PipelineConfig.from_dynamodb_item(item)
                 
                 assert restored.cpu_cores == test_value
                 
@@ -488,8 +769,8 @@ class TestEdgeCaseValidation:
             spark_config=mixed_config
         )
         
-        item = model_to_item(pipeline)
-        restored = item_to_model(item, PipelineConfig)
+        item = pipeline.to_dynamodb_item()
+        restored = PipelineConfig.from_dynamodb_item(item)
         
         assert restored.spark_config == mixed_config
 
@@ -510,8 +791,8 @@ class TestEdgeCaseValidation:
                     spark_config=empty_value
                 )
                 
-                item = model_to_item(pipeline)
-                restored = item_to_model(item, PipelineConfig)
+                item = pipeline.to_dynamodb_item()
+                restored = PipelineConfig.from_dynamodb_item(item)
                 
                 assert restored.spark_config == empty_value
                 
@@ -526,7 +807,7 @@ class TestEdgeCaseValidation:
                     partition_columns=empty_value
                 )
                 
-                item = model_to_item(table)
-                restored = item_to_model(item, TableConfig)
+                item = table.to_dynamodb_item()
+                restored = TableConfig.from_dynamodb_item(item)
                 
                 assert restored.partition_columns == empty_value

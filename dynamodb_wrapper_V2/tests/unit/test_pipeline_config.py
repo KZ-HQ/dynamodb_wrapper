@@ -13,7 +13,7 @@ from pydantic import ValidationError as PydanticValidationError
 from dynamodb_wrapper.config import DynamoDBConfig
 from dynamodb_wrapper.handlers.pipeline_config.queries import PipelineConfigReadApi
 from dynamodb_wrapper.handlers.pipeline_config.commands import PipelineConfigWriteApi
-from dynamodb_wrapper.models import PipelineConfigUpsert, PipelineConfig, PipelineConfigView
+from dynamodb_wrapper.models import PipelineConfigUpsert, PipelineConfig, PipelineConfigView, PipelineConfigSummaryView
 from dynamodb_wrapper.exceptions import ValidationError, ItemNotFoundError, ConflictError
 
 
@@ -65,7 +65,7 @@ class TestPipelineConfigReadApi:
         mock_gateway.table.get_item.return_value = {'Item': mock_item}
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.queries.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.queries.item_to_model') as mock_convert:
+            with patch.object(PipelineConfigView, 'from_dynamodb_item') as mock_convert:
                 mock_view = Mock(spec=PipelineConfigView)
                 mock_convert.return_value = mock_view
                 
@@ -74,7 +74,7 @@ class TestPipelineConfigReadApi:
                 
                 assert result == mock_view
                 mock_gateway.table.get_item.assert_called_once()
-                mock_convert.assert_called_once_with(mock_item, PipelineConfigView)
+                mock_convert.assert_called_once_with(mock_item)
 
     def test_get_by_id_not_found(self, mock_config, mock_gateway):
         """Test get_by_id when pipeline is not found."""
@@ -93,7 +93,7 @@ class TestPipelineConfigReadApi:
         with patch('dynamodb_wrapper.handlers.pipeline_config.queries.create_table_gateway', return_value=mock_gateway):
             with patch('dynamodb_wrapper.handlers.pipeline_config.queries.build_projection_expression') as mock_proj:
                 mock_proj.return_value = ('#f0', {'#f0': 'pipeline_id'})
-                with patch('dynamodb_wrapper.handlers.pipeline_config.queries.item_to_model'):
+                with patch.object(PipelineConfigView, 'from_dynamodb_item'):
                     api = PipelineConfigReadApi(mock_config)
                     api.get_by_id('test-pipeline', projection=['pipeline_id'])
                     
@@ -114,7 +114,7 @@ class TestPipelineConfigReadApi:
         }
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.queries.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.queries.item_to_model') as mock_convert:
+            with patch.object(PipelineConfigView, 'from_dynamodb_item') as mock_convert:
                 mock_views = [Mock(spec=PipelineConfigView) for _ in mock_items]
                 mock_convert.side_effect = mock_views
                 
@@ -135,7 +135,7 @@ class TestPipelineConfigReadApi:
         mock_gateway.query.return_value = {'Items': mock_items}
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.queries.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.queries.item_to_model') as mock_convert:
+            with patch.object(PipelineConfigView, 'from_dynamodb_item') as mock_convert:
                 mock_convert.return_value = Mock(spec=PipelineConfigView)
                 
                 api = PipelineConfigReadApi(mock_config)
@@ -154,7 +154,7 @@ class TestPipelineConfigReadApi:
         mock_gateway.query.return_value = {'Items': mock_items}
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.queries.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.queries.item_to_model') as mock_convert:
+            with patch.object(PipelineConfigView, 'from_dynamodb_item') as mock_convert:
                 mock_convert.return_value = Mock(spec=PipelineConfigView)
                 
                 api = PipelineConfigReadApi(mock_config)
@@ -172,7 +172,7 @@ class TestPipelineConfigReadApi:
         mock_gateway.scan.return_value = {'Items': mock_items}
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.queries.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.queries.item_to_model') as mock_convert:
+            with patch.object(PipelineConfigView, 'from_dynamodb_item') as mock_convert:
                 with patch('dynamodb_wrapper.handlers.pipeline_config.queries.logger') as mock_logger:
                     mock_convert.return_value = Mock(spec=PipelineConfigView)
                     
@@ -188,8 +188,7 @@ class TestPipelineConfigReadApi:
         mock_gateway.table.get_item.return_value = {'Item': mock_item}
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.queries.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.queries.item_to_model') as mock_convert:
-                from dynamodb_wrapper.models import PipelineConfigSummaryView
+            with patch.object(PipelineConfigSummaryView, 'from_dynamodb_item') as mock_convert:
                 mock_summary = Mock(spec=PipelineConfigSummaryView)
                 mock_convert.return_value = mock_summary
                 
@@ -197,7 +196,7 @@ class TestPipelineConfigReadApi:
                 result = api.get_pipeline_summary('test-pipeline')
                 
                 assert result == mock_summary
-                mock_convert.assert_called_with(mock_item, PipelineConfigSummaryView)
+                mock_convert.assert_called_with(mock_item)
 
     def test_count_pipelines_by_environment(self, mock_config, mock_gateway):
         """Test counting pipelines by environment."""
@@ -247,7 +246,7 @@ class TestPipelineConfigWriteApi:
         )
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
+            with patch.object(PipelineConfig, 'to_dynamodb_item') as mock_convert:
                 mock_convert.return_value = {'pipeline_id': 'test-pipeline'}
                 
                 api = PipelineConfigWriteApi(mock_config)
@@ -341,7 +340,7 @@ class TestPipelineConfigWriteApi:
         )
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
+            with patch.object(PipelineConfig, 'to_dynamodb_item') as mock_convert:
                 mock_convert.return_value = {'pipeline_id': 'test-pipeline'}
                 
                 api = PipelineConfigWriteApi(mock_config)
@@ -373,8 +372,8 @@ class TestPipelineConfigWriteApi:
         }
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
-                mock_convert.side_effect = lambda p: {'pipeline_id': p.pipeline_id, 'pipeline_name': p.pipeline_name}
+            with patch.object(PipelineConfig, 'to_dynamodb_item') as mock_convert:
+                mock_convert.side_effect = lambda: {'pipeline_id': 'test-pipeline', 'pipeline_name': 'test-name'}
                 
                 api = PipelineConfigWriteApi(mock_config)
                 result = api.upsert_many(pipelines_data)

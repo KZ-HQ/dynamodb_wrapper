@@ -53,8 +53,8 @@ class TestBatchOperationsRetryLogic:
         }
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
-                mock_convert.side_effect = lambda p: {'pipeline_id': p.pipeline_id, 'pipeline_name': p.pipeline_name}
+            with patch.object(PipelineConfig, 'to_dynamodb_item') as mock_convert:
+                mock_convert.return_value = {'pipeline_id': 'test', 'pipeline_name': 'Test Pipeline'}
                 
                 api = PipelineConfigWriteApi(mock_config)
                 pipelines_data = [
@@ -97,36 +97,33 @@ class TestBatchOperationsRetryLogic:
         ]
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
-                with patch('time.sleep') as mock_sleep:  # Mock sleep to speed up tests
-                    mock_convert.side_effect = lambda p: {'pipeline_id': p.pipeline_id, 'pipeline_name': p.pipeline_name}
-                    
-                    api = PipelineConfigWriteApi(mock_config)
-                    pipelines_data = [
-                        PipelineConfigUpsert(
-                            pipeline_id="success-1",
-                            pipeline_name="Success Pipeline 1",
-                            source_type="s3",
-                            destination_type="warehouse"
-                        ),
-                        PipelineConfigUpsert(
-                            pipeline_id="retry-1",
-                            pipeline_name="Retry Pipeline 1",
-                            source_type="s3",
-                            destination_type="warehouse"
-                        )
-                    ]
-                    
-                    result = api.upsert_many(pipelines_data)
-                    
-                    # Should succeed with all items after retry
-                    assert len(result) == 2
-                    
-                    # Should call batch_write_item twice (initial + retry)
-                    assert mock_gateway.dynamodb.batch_write_item.call_count == 2
-                    
-                    # Should have slept for backoff
-                    mock_sleep.assert_called()
+            with patch('time.sleep') as mock_sleep:  # Mock sleep to speed up tests
+                api = PipelineConfigWriteApi(mock_config)
+                pipelines_data = [
+                    PipelineConfigUpsert(
+                        pipeline_id="success-1",
+                        pipeline_name="Success Pipeline 1",
+                        source_type="s3",
+                        destination_type="warehouse"
+                    ),
+                    PipelineConfigUpsert(
+                        pipeline_id="retry-1",
+                        pipeline_name="Retry Pipeline 1",
+                        source_type="s3",
+                        destination_type="warehouse"
+                    )
+                ]
+                
+                result = api.upsert_many(pipelines_data)
+                
+                # Should succeed with all items after retry
+                assert len(result) == 2
+                
+                # Should call batch_write_item twice (initial + retry)
+                assert mock_gateway.dynamodb.batch_write_item.call_count == 2
+                
+                # Should have slept for backoff
+                mock_sleep.assert_called()
 
     def test_batch_write_max_retries_exceeded(self, mock_config, mock_gateway):
         """Test batch write failure after max retries."""
@@ -144,22 +141,19 @@ class TestBatchOperationsRetryLogic:
         }
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
-                with patch('time.sleep'):  # Mock sleep to speed up tests
-                    mock_convert.side_effect = lambda p: {'pipeline_id': p.pipeline_id, 'pipeline_name': p.pipeline_name}
-                    
-                    api = PipelineConfigWriteApi(mock_config)
-                    pipelines_data = [
-                        PipelineConfigUpsert(
-                            pipeline_id="fail-1",
-                            pipeline_name="Fail Pipeline 1",
-                            source_type="s3",
-                            destination_type="warehouse"
-                        )
-                    ]
-                    
-                    with pytest.raises(ConnectionError, match="Batch write failed for 1 items after 3 retries"):
-                        api.upsert_many(pipelines_data)
+            with patch('time.sleep'):  # Mock sleep to speed up tests
+                api = PipelineConfigWriteApi(mock_config)
+                pipelines_data = [
+                    PipelineConfigUpsert(
+                        pipeline_id="fail-1",
+                        pipeline_name="Fail Pipeline 1",
+                        source_type="s3",
+                        destination_type="warehouse"
+                    )
+                ]
+                
+                with pytest.raises(ConnectionError, match="Batch write failed for 1 items after 3 retries"):
+                    api.upsert_many(pipelines_data)
                         
                     # Should retry max_retries + 1 times (4 total)
                     assert mock_gateway.dynamodb.batch_write_item.call_count == 4
@@ -183,30 +177,27 @@ class TestBatchOperationsRetryLogic:
         ]
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
-                with patch('time.sleep') as mock_sleep:
-                    mock_convert.side_effect = lambda p: {'pipeline_id': p.pipeline_id, 'pipeline_name': p.pipeline_name}
-                    
-                    api = PipelineConfigWriteApi(mock_config)
-                    pipelines_data = [
-                        PipelineConfigUpsert(
-                            pipeline_id="throttle-test",
-                            pipeline_name="Throttle Test",
-                            source_type="s3",
-                            destination_type="warehouse"
-                        )
-                    ]
-                    
-                    result = api.upsert_many(pipelines_data)
-                    
-                    # Should succeed after retry
-                    assert len(result) == 1
-                    
-                    # Should retry once
-                    assert mock_gateway.dynamodb.batch_write_item.call_count == 2
-                    
-                    # Should backoff for throttling (longer delay)
-                    mock_sleep.assert_called()
+            with patch('time.sleep') as mock_sleep:
+                api = PipelineConfigWriteApi(mock_config)
+                pipelines_data = [
+                    PipelineConfigUpsert(
+                        pipeline_id="throttle-test",
+                        pipeline_name="Throttle Test",
+                        source_type="s3",
+                        destination_type="warehouse"
+                    )
+                ]
+                
+                result = api.upsert_many(pipelines_data)
+                
+                # Should succeed after retry
+                assert len(result) == 1
+                
+                # Should retry once
+                assert mock_gateway.dynamodb.batch_write_item.call_count == 2
+                
+                # Should backoff for throttling (longer delay)
+                mock_sleep.assert_called()
 
 
 class TestItemSizeValidation:
@@ -289,8 +280,8 @@ class TestBatchChunking:
         mock_gateway.dynamodb.batch_write_item.return_value = {'UnprocessedItems': {}}
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
-                mock_convert.side_effect = lambda p: {'pipeline_id': p.pipeline_id, 'pipeline_name': p.pipeline_name}
+            with patch.object(PipelineConfig, 'to_dynamodb_item') as mock_convert:
+                mock_convert.return_value = {'pipeline_id': 'test', 'pipeline_name': 'Test Pipeline'}
                 
                 api = PipelineConfigWriteApi(mock_config)
                 
@@ -329,8 +320,8 @@ class TestBatchChunking:
         mock_gateway.dynamodb.batch_write_item.return_value = {'UnprocessedItems': {}}
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
-                mock_convert.side_effect = lambda p: {'pipeline_id': p.pipeline_id, 'pipeline_name': p.pipeline_name}
+            with patch.object(PipelineConfig, 'to_dynamodb_item') as mock_convert:
+                mock_convert.return_value = {'pipeline_id': 'test', 'pipeline_name': 'Test Pipeline'}
                 
                 api = PipelineConfigWriteApi(mock_config)
                 
@@ -379,33 +370,30 @@ class TestPartialFailureHandling:
         mock_gateway.dynamodb.batch_write_item.side_effect = mock_responses
         
         with patch('dynamodb_wrapper.handlers.pipeline_config.commands.create_table_gateway', return_value=mock_gateway):
-            with patch('dynamodb_wrapper.handlers.pipeline_config.commands.model_to_item') as mock_convert:
-                with patch('time.sleep'):
-                    mock_convert.side_effect = lambda p: {'pipeline_id': p.pipeline_id, 'pipeline_name': p.pipeline_name}
-                    
-                    api = PipelineConfigWriteApi(mock_config)
-                    pipelines_data = [
-                        PipelineConfigUpsert(
-                            pipeline_id="success-item",
-                            pipeline_name="Success Item",
-                            source_type="s3",
-                            destination_type="warehouse"
-                        ),
-                        PipelineConfigUpsert(
-                            pipeline_id="retry-item",
-                            pipeline_name="Retry Item",
-                            source_type="s3",
-                            destination_type="warehouse"
-                        )
-                    ]
-                    
-                    result = api.upsert_many(pipelines_data)
-                    
-                    # Should eventually succeed with all items
-                    assert len(result) == 2
-                    
-                    # Should retry the unprocessed item
-                    assert mock_gateway.dynamodb.batch_write_item.call_count == 2
+            with patch('time.sleep'):
+                api = PipelineConfigWriteApi(mock_config)
+                pipelines_data = [
+                    PipelineConfigUpsert(
+                        pipeline_id="success-item",
+                        pipeline_name="Success Item",
+                        source_type="s3",
+                        destination_type="warehouse"
+                    ),
+                    PipelineConfigUpsert(
+                        pipeline_id="retry-item",
+                        pipeline_name="Retry Item",
+                        source_type="s3",
+                        destination_type="warehouse"
+                    )
+                ]
+                
+                result = api.upsert_many(pipelines_data)
+                
+                # Should eventually succeed with all items
+                assert len(result) == 2
+                
+                # Should retry the unprocessed item
+                assert mock_gateway.dynamodb.batch_write_item.call_count == 2
 
     def test_empty_batch_handling(self, mock_config, mock_gateway):
         """Test handling of empty batch."""

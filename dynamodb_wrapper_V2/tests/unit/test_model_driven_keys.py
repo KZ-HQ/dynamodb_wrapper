@@ -13,7 +13,7 @@ from dynamodb_wrapper.utils import (
     build_model_key,
     build_model_key_condition, 
     build_gsi_key_condition,
-    get_model_primary_key_fields,
+    get_model_key_fields,
     get_model_gsi_names
 )
 
@@ -23,19 +23,19 @@ class TestModelMetadata:
     
     def test_pipeline_config_metadata(self):
         """Test PipelineConfig metadata extraction."""
-        assert get_model_primary_key_fields(PipelineConfig) == ['pipeline_id']
+        assert get_model_key_fields(PipelineConfig) == ['pipeline_id']
         assert 'ActivePipelinesIndex' in get_model_gsi_names(PipelineConfig)
         assert 'EnvironmentIndex' in get_model_gsi_names(PipelineConfig)
     
     def test_table_config_metadata(self):
         """Test TableConfig metadata extraction."""
-        assert get_model_primary_key_fields(TableConfig) == ['table_id']
+        assert get_model_key_fields(TableConfig) == ['table_id']
         assert 'PipelineTablesIndex' in get_model_gsi_names(TableConfig)
         assert 'TableTypeIndex' in get_model_gsi_names(TableConfig)
     
     def test_pipeline_run_log_metadata(self):
         """Test PipelineRunLog metadata extraction."""
-        assert get_model_primary_key_fields(PipelineRunLog) == ['run_id', 'pipeline_id']
+        assert get_model_key_fields(PipelineRunLog) == ['run_id', 'pipeline_id']
         assert 'PipelineRunsIndex' in get_model_gsi_names(PipelineRunLog)
         assert 'StatusRunsIndex' in get_model_gsi_names(PipelineRunLog)
 
@@ -141,7 +141,7 @@ class TestErrorHandling:
             build_model_key(ModelWithoutMeta, id="test")
         
         with pytest.raises(ValueError, match="Model ModelWithoutMeta must have a Meta class"):
-            get_model_primary_key_fields(ModelWithoutMeta)
+            get_model_key_fields(ModelWithoutMeta)
         
         with pytest.raises(ValueError, match="Model ModelWithoutMeta must have a Meta class"):
             get_model_gsi_names(ModelWithoutMeta)
@@ -181,8 +181,8 @@ class TestDeveloperExperience:
     def test_single_source_of_truth_for_keys(self):
         """Test that key definitions come from model metadata."""
         # Key structure is defined in the model, not repeated in code
-        pipeline_keys = get_model_primary_key_fields(PipelineConfig)
-        run_log_keys = get_model_primary_key_fields(PipelineRunLog)
+        pipeline_keys = get_model_key_fields(PipelineConfig)
+        run_log_keys = get_model_key_fields(PipelineRunLog)
         
         # Different models have different key structures
         assert len(pipeline_keys) == 1  # Simple key
